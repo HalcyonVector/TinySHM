@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Fake (simulated) data and its outputs: regenerate with pc/simulate.py
+data/sim*/
+data/sim*.csv
+results/sim*/
+
+# Trained model blobs (rebuild with pc/train.py)
+*.pkl
+
+# Keil / build outputs
+*.o
+*.axf
+*.hex
+*.lst
+*.map
+*.crf
+*.d
+*.dep
+*.lnp
+*.htm
+*.bak
+*.uvgui.*
+*.uvguix.*
+Objects/
+Listings/
+
+# Secrets
+.env
+
+# OS junk
+Thumbs.db
+.DS_Store
+*.tmp
