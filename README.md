@@ -24,6 +24,8 @@ python pc/llm_report.py sim_session   # AI-written inspection report
 ```
 Results land in `results/sim/` and `results/sim_session/`.
 
+**New to the hardware?** Start with [docs/BUILD_GUIDE.md](docs/BUILD_GUIDE.md): building the beam, wiring the sensor, and every lab step in order.
+
 ## Board setup (ALS-SDA-ARMCTXM3-01, from the lab manual)
 The code supports two sensors. **MPU6050 (GY-521) is the default.** To use an
 ADXL335 (GY-61) instead, set `SENSOR` to `SENSOR_ADXL335` in `board/config.h`
