@@ -108,48 +108,76 @@ write the numbers down so you can rebuild it the same way.
 
 ## Part 3: Wire the sensor to the board
 
+**Important: no FRC ribbon cable for the sensor.** An FRC cable only joins
+one 10-pin socket to another 10-pin socket (like CND to CNAD for the LCD).
+The sensor module has single pins, so it connects with **loose
+female-to-female jumper wires**, one wire per pin. The FRC cables are only
+for the LCD and the keypad.
+
+### Where everything is on the lab board
+
+![Where everything is on the lab board](img/board_annotated.png)
+
+| Mark on the photo | What it is | Used for |
+|---|---|---|
+| 1: TP2 "3.3V" | Small black test post in the POWER SUPPLY box, bottom right | Sensor VCC (both sensors) |
+| 2: TP3 "GND" | The post right next to TP2 | Sensor GND (both sensors) |
+| TP1 "+5V" | Third post | Not needed |
+| 3: JP18 | Small 3-pin jumper in the RS485 box on the left side, just above the coin cell. Normally a plastic cap joins pins 2 and 3, linking the AD0.4 knob (POT4) to the processor | ADXL335 only: cap off, Z wire on the **middle pin** (P1.30). Leave it alone for the MPU6050 |
+| AD0.4 pot (POT4) | Blue knob at the top, next to AD0.5 | Dry run with the ADXL335 setting |
+| 4: CNC | The upright 10-pin socket to the left of the clear processor cover, beside the coin cell | MPU6050 only: SDA and SCL on the **middle pair** of pins (pins 5 and 6) |
+| CNB | The socket on the right of the processor cover (where the ribbon is in the photo) | Keypad cable (CNB to CNB3) |
+| 5: CNAD | Socket just under the LCD, next to POT2 | LCD cable (CND to CNAD) |
+| 6: CNB3 | Socket to the right of the 4x4 keys | Keypad cable |
+
+TP2 and TP3 are test posts, not header pins. If a female jumper end doesn't
+grip them firmly, use a small crocodile-clip lead (about Rs 50 for a pack).
+
+### The wiring for each sensor
+
 ![Wiring for both sensors](img/wiring.png)
 
-### If you use the MPU6050 (GY-521)
+#### If you use the MPU6050 (GY-521): 4 wires
 
-The GY-521 has 8 pins. You only use 4. Use **female-to-female** wires: one
-end goes on the module's pin, the other on the board's header pin (both are
-male pins).
+1. Leave CNC empty: no FRC cable in it.
+2. Take 4 female-to-female jumper wires. Push one end of each onto the
+   GY-521's **VCC**, **GND**, **SCL** and **SDA** pins.
+3. Push the other ends on like this:
 
-| GY-521 pin | Goes to on the LPC1768 board |
+| GY-521 pin | Goes to |
 |---|---|
-| VCC | **TP2, marked "3.3V"**, in the POWER SUPPLY box at the bottom right of the board |
-| GND | **TP3, marked "GND"**, right next to TP2 (or pin 10 of any 10-pin FRC connector) |
-| SCL | Connector **CNC** (the upright 10-pin socket left of the processor cover, beside the coin cell), middle row, pin 6 (P0.20) |
-| SDA | Connector **CNC**, middle row, pin 5 (P0.19), next to SCL |
+| VCC | **TP2 "3.3V"** |
+| GND | **TP3 "GND"** |
+| SDA | **CNC, middle pair**, pin 5 (P0.19) |
+| SCL | **CNC, middle pair**, pin 6 (P0.20), beside SDA |
 | XDA, XCL, AD0, INT | Leave unconnected |
 
-**Pins 5 and 6 are always the middle pair** of a 10-pin socket (pairs go
-1-2, 3-4, 5-6, 7-8, 9-10), so put SDA and SCL on the two middle pins. If the
-LCD says MPU6050 NOT FOUND, just swap those two wires.
+The black plastic box around CNC is only a guide. The jumper ends slide in
+side by side onto the metal pins inside it. Pins in a 10-pin socket go in
+pairs (1-2, 3-4, 5-6, 7-8, 9-10), so pins 5 and 6 are always the middle pair,
+whichever way up the socket is. If the LCD says **MPU6050 NOT FOUND**, swap
+the SDA and SCL wires and press reset.
 
-**Finding pin 1 on CNC (only matters for pin 10):** the 10-pin box connector has a small
-triangle or "1" next to pin 1. Pins are numbered in a zigzag: 1 and 2 face
-each other, then 3 and 4, and so on, with pin 10 at the far end. Check the
-CNC picture in Appendix C of the lab manual (or ask the staff) to confirm
-that pins 5 and 6 are P0.19 and P0.20.
+#### If you use the ADXL335 (GY-61): 3 wires
 
-### If you use the ADXL335 (GY-61)
+The GY-61 has 5 pins (VCC, X, Y, Z, GND; some have a 6th, ST). You use 3.
 
-The GY-61 has 5 pins (VCC, X, Y, Z, GND; some have a 6th, ST). You only use 3.
+1. Pull the plastic cap off JP18 and keep it safe (you need it back for
+   normal lab experiments).
+2. Take 3 female-to-female jumper wires and connect:
 
-| GY-61 pin | Goes to on the LPC1768 board |
+| GY-61 pin | Goes to |
 |---|---|
-| VCC | **TP2, marked "3.3V"**, in the POWER SUPPLY box at the bottom right |
-| GND | **TP3, marked "GND"**, next to TP2 |
-| Z | The **middle pin of JP18** (in the RS485 box, left side of the board). Take the JP18 jumper cap off first and keep it safe |
+| VCC | **TP2 "3.3V"** |
+| GND | **TP3 "GND"** |
+| Z | **JP18 middle pin** (P1.30, AD0.4) |
 | X, Y, ST | Leave unconnected |
 
-**Finding the right JP18 pin:** before wiring the sensor, put the JP18
-jumper on pins 2 and 3 (the manual's setting for POT4), flash, and turn POT4.
-The logger readings should change. Then take the jumper off and put the Z
-wire on pin 2. Flick: if the readings follow the flick, that's the pin. If
-not, try pin 3.
+**Why the middle pin:** JP18 is a selector. The cap on pins 2 and 3 connects
+the knob to the processor, so the middle pin (pin 2) is the one shared by
+both positions, and that's the processor's input (worked out from the
+layout). To double-check: with the cap on 2 and 3 and the ADXL335 setting
+flashed, turning POT4 should change the logger readings.
 
 **If JP18 doesn't work at all:** put the Z wire on CND pin 1 (P0.23,
 AD0.0), set `ADC_CH 0` and `USE_LCD 0` in `board/config.h`, and read the
@@ -157,12 +185,8 @@ results on the laptop only. The LCD uses CND, so it can't be connected.
 
 ### For both sensors
 
-![Where everything is on the lab board](img/board_annotated.png)
-
-TP2 and TP3 are small test-point posts. If a female jumper doesn't grip, use a small crocodile-clip lead instead.
-
 **Wire routing:**
-- Tape the 4 wires along the ruler with small pieces of insulation tape,
+- Tape the wires along the ruler with small pieces of insulation tape,
   running back toward the clamp.
 - Leave a loose loop of wire between the clamp and the board, so the wires
   never pull on the beam.
@@ -170,7 +194,7 @@ TP2 and TP3 are small test-point posts. If a female jumper doesn't grip, use a s
   part doesn't swing.
 - Keep the wiring exactly the same for all tests. Wires add a little weight.
 
-**Other board connections** (same as your lab experiments):
+**Other board connections** (same as your lab experiments, these DO use FRC cables):
 - LCD: FRC cable from CND to CNAD, short JP16 and JP5. Use POT3 if the text
   is invisible.
 - Keypad: FRC cable from CNB to CNB3, short JP4 (1,2).
