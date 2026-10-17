@@ -120,11 +120,15 @@ male pins).
 |---|---|
 | VCC | **TP2, marked "3.3V"**, in the POWER SUPPLY box at the bottom right of the board |
 | GND | **TP3, marked "GND"**, right next to TP2 (or pin 10 of any 10-pin FRC connector) |
-| SCL | Connector **CNC**, the pin for P0.20 (most likely pin 6) |
-| SDA | Connector **CNC**, the pin for P0.19 (most likely pin 5) |
+| SCL | Connector **CNC** (the upright 10-pin socket left of the processor cover, beside the coin cell), middle row, pin 6 (P0.20) |
+| SDA | Connector **CNC**, middle row, pin 5 (P0.19), next to SCL |
 | XDA, XCL, AD0, INT | Leave unconnected |
 
-**Finding pins 5 and 6 on CNC:** the 10-pin box connector has a small
+**Pins 5 and 6 are always the middle pair** of a 10-pin socket (pairs go
+1-2, 3-4, 5-6, 7-8, 9-10), so put SDA and SCL on the two middle pins. If the
+LCD says MPU6050 NOT FOUND, just swap those two wires.
+
+**Finding pin 1 on CNC (only matters for pin 10):** the 10-pin box connector has a small
 triangle or "1" next to pin 1. Pins are numbered in a zigzag: 1 and 2 face
 each other, then 3 and 4, and so on, with pin 10 at the far end. Check the
 CNC picture in Appendix C of the lab manual (or ask the staff) to confirm
