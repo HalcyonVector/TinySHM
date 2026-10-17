@@ -118,8 +118,8 @@ male pins).
 
 | GY-521 pin | Goes to on the LPC1768 board |
 |---|---|
-| VCC | The 3.3 V or 5 V pin. **Ask the lab staff which header pin this is.** Either voltage is fine for the GY-521 |
-| GND | Pin 10 of any of the CNA, CNB, CNC or CND connectors (pin 10 is ground on all of them) |
+| VCC | **TP2, marked "3.3V"**, in the POWER SUPPLY box at the bottom right of the board |
+| GND | **TP3, marked "GND"**, right next to TP2 (or pin 10 of any 10-pin FRC connector) |
 | SCL | Connector **CNC**, the pin for P0.20 (most likely pin 6) |
 | SDA | Connector **CNC**, the pin for P0.19 (most likely pin 5) |
 | XDA, XCL, AD0, INT | Leave unconnected |
@@ -136,9 +136,9 @@ The GY-61 has 5 pins (VCC, X, Y, Z, GND; some have a 6th, ST). You only use 3.
 
 | GY-61 pin | Goes to on the LPC1768 board |
 |---|---|
-| VCC | The 3.3 V or 5 V pin. **Ask the lab staff which header pin this is.** Either is fine for the GY-61 |
-| GND | Pin 10 of any of the CNA, CNB, CNC or CND connectors |
-| Z | The **JP18** pin that carries P1.30 (AD0.4). Take the JP18 jumper off first |
+| VCC | **TP2, marked "3.3V"**, in the POWER SUPPLY box at the bottom right |
+| GND | **TP3, marked "GND"**, next to TP2 |
+| Z | The **middle pin of JP18** (in the RS485 box, left side of the board). Take the JP18 jumper cap off first and keep it safe |
 | X, Y, ST | Leave unconnected |
 
 **Finding the right JP18 pin:** before wiring the sensor, put the JP18
@@ -152,6 +152,10 @@ AD0.0), set `ADC_CH 0` and `USE_LCD 0` in `board/config.h`, and read the
 results on the laptop only. The LCD uses CND, so it can't be connected.
 
 ### For both sensors
+
+![Where everything is on the lab board](img/board_annotated.png)
+
+TP2 and TP3 are small test-point posts. If a female jumper doesn't grip, use a small crocodile-clip lead instead.
 
 **Wire routing:**
 - Tape the 4 wires along the ruler with small pieces of insulation tape,
