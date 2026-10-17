@@ -8,9 +8,65 @@ Everything here is done by hand. No drilling, cutting or soldering.
 - 1 C-clamp (G-clamp), 3 or 4 inch
 - 3 binder clips, 25 mm or 32 mm
 - Thin double-sided tape and insulation tape
-- MPU6050 module (GY-521) with headers **already soldered**
+- **One** sensor module with headers **already soldered**: an MPU6050
+  (GY-521 board) or an ADXL335 (GY-61 board). See Part 0 to pick.
 - Female-to-female jumper wires (main use) and a few male-to-female (spare)
 - A coin, a pen, and the lab's LPC1768 board, PC, Keil and Flash Magic
+
+## Part 0: ADXL335 or MPU6050?
+
+Both measure how hard the ruler shakes (acceleration). The code works with
+either one. You only need **one** of them.
+
+**In simple terms:**
+- The **ADXL335** sends a **voltage**. More shaking means the voltage goes up
+  and down more. The board measures the voltage with its ADC, the same way
+  you read POT4 in the lab.
+- The **MPU6050** sends **numbers** over two wires using a protocol called
+  I2C. The board asks "what is the acceleration?" 100 times a second and the
+  chip answers with a number.
+
+Think of it as an analog thermometer you read by eye (ADXL335) versus a
+digital thermometer that tells you the exact number (MPU6050).
+
+| | ADXL335 (GY-61) | MPU6050 (GY-521) |
+|---|---|---|
+| How it talks | Voltage into the ADC | Digital numbers over I2C |
+| Wires to the board | 3 (VCC, GND, Z) | 4 (VCC, GND, SDA, SCL) |
+| Where it plugs in | JP18 pin (AD0.4) | Connector CNC pins 5 and 6 |
+| Detail in each reading | 12-bit: about 370 steps per g | 16-bit: 8192 steps per g, about 22 times finer |
+| Noise | Picks up electrical noise on the wire and the board | Converts inside the chip, so the wire carries clean numbers |
+| Built-in filter | No | Yes (44 Hz), which removes fast junk before sampling |
+| Extra sensors | None | A gyroscope too (not used, but nice to mention) |
+| Price (approx., not checked today) | Rs 424 at ElectronicsComp | Rs 150 to 250 |
+| Test before it arrives | Yes, POT4 stands in for the sensor | Only the rest of the board (flash the ADXL335 setting and use POT4) |
+| If it isn't working | Readings don't change. Harder to tell why | LCD says "MPU6050 NOT FOUND", so you know it's the wiring |
+| Good for the viva | Uses the ADC lab you already did | Adds an I2C driver, a real embedded protocol |
+| Main risk | Wrong JP18 pin | Wrong CNC pin or SDA/SCL swapped |
+
+**Why the MPU6050 is better here:** cleaner and finer readings mean the
+small frequency and damping changes from a loose clip show up more clearly,
+and that's exactly what the ML depends on. It's also cheaper and tells you
+when the wiring is wrong.
+
+**Why you might still pick the ADXL335:** it's the simplest possible
+wiring (just a voltage), and it uses only things you've already done in the
+lab.
+
+**Recommendation:** MPU6050. If its I2C pins give trouble, the same code
+switches to an ADXL335 by changing one line, so you're not stuck.
+
+**Switching sensors in the code:** set `SENSOR` in `board/config.h`
+(`SENSOR_MPU6050` or `SENSOR_ADXL335`) **and** `SENSOR` in `pc/config.py`
+(`"mpu6050"` or `"adxl335"`). They must match. MPU6050 is the default.
+
+### What to buy for each
+
+| | ADXL335 | MPU6050 |
+|---|---|---|
+| Module | GY-61, headers soldered | GY-521, headers soldered |
+| Wires | 3 female-to-female | 4 female-to-female |
+| Everything else | Same: rulers, clamp, clips, tapes | Same |
 
 ## Part 1: Build the beam
 
@@ -51,6 +107,7 @@ the code expects. A much longer beam vibrates too slowly to measure well.
 
 1. Put a small square of double-sided tape on the back of the GY-521 board
    (the side without the chip).
+   (Same for the GY-61 if you use the ADXL335.)
 2. Press it flat onto ruler B, about 2 cm from the tip, with the pins
    pointing back toward the table. The chip's flat face must be parallel to
    the ruler.
@@ -58,6 +115,8 @@ the code expects. A much longer beam vibrates too slowly to measure well.
    so it can't peel off when you flick.
 
 ## Part 3: Wire the sensor to the board
+
+### If you use the MPU6050 (GY-521)
 
 The GY-521 has 8 pins. You only use 4. Use **female-to-female** wires: one
 end goes on the module's pin, the other on the board's header pin (both are
@@ -76,6 +135,29 @@ triangle or "1" next to pin 1. Pins are numbered in a zigzag: 1 and 2 face
 each other, then 3 and 4, and so on, with pin 10 at the far end. Check the
 CNC picture in Appendix C of the lab manual (or ask the staff) to confirm
 that pins 5 and 6 are P0.19 and P0.20.
+
+### If you use the ADXL335 (GY-61)
+
+The GY-61 has 5 pins (VCC, X, Y, Z, GND; some have a 6th, ST). You only use 3.
+
+| GY-61 pin | Goes to on the LPC1768 board |
+|---|---|
+| VCC | The 3.3 V or 5 V pin. **Ask the lab staff which header pin this is.** Either is fine for the GY-61 |
+| GND | Pin 10 of any of the CNA, CNB, CNC or CND connectors |
+| Z | The **JP18** pin that carries P1.30 (AD0.4). Take the JP18 jumper off first |
+| X, Y, ST | Leave unconnected |
+
+**Finding the right JP18 pin:** before wiring the sensor, put the JP18
+jumper on pins 2 and 3 (the manual's setting for POT4), flash, and turn POT4.
+The logger readings should change. Then take the jumper off and put the Z
+wire on pin 2. Flick: if the readings follow the flick, that's the pin. If
+not, try pin 3.
+
+**If JP18 doesn't work at all:** put the Z wire on CND pin 1 (P0.23,
+AD0.0), set `ADC_CH 0` and `USE_LCD 0` in `board/config.h`, and read the
+results on the laptop only. The LCD uses CND, so it can't be connected.
+
+### For both sensors
 
 **Wire routing:**
 - Tape the 4 wires along the ruler with small pieces of insulation tape,
@@ -106,6 +188,9 @@ that pins 5 and 6 are P0.19 and P0.20.
    - **MPU6050 NOT / CHECK WIRING** means no reply. Swap the SDA and SCL
      wires, check VCC and GND, and press reset. If it still fails, try the
      other two CNC pins next to them.
+   - With the **ADXL335** the LCD always says "Flick the ruler", because an
+     analog sensor can't answer back. Check it by flicking: the logger
+     should show readings that swing up and down.
 
 ## Part 5: First flick
 
@@ -181,6 +266,7 @@ python pc/llm_report.py real
 |---|---|
 | LCD blank | Turn POT3. Check the CND to CNAD cable and the JP16 and JP5 jumpers |
 | MPU6050 NOT FOUND | Swap SDA and SCL, check VCC and GND, press reset |
+| ADXL335 readings never change | Wrong JP18 pin, or the jumper is still on. Redo the POT4 check |
 | Board does nothing after flashing | Close Flash Magic and press reset (it can hold the board in reset) |
 | Logger shows nothing | Close Flash Magic, check the COM port number, baud 115200 |
 | Flick doesn't start a recording | Flick a bit harder. The trigger needs a 0.3 g jump |
