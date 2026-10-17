@@ -18,12 +18,14 @@ import os
 import urllib.request
 from datetime import date
 import pandas as pd
-from config import DATA, RESULTS, UNSAFE_HEALTH
+from config import DATA, RESULTS, UNSAFE_HEALTH, SENSOR
+
+SENSOR_NAME = "MPU6050" if SENSOR == "mpu6050" else "ADXL335"
 
 SYSTEM = (
     "You are a structural health monitoring engineer. Write a short inspection report "
     "(under 350 words, markdown) for a lab-scale cantilever beam (a steel ruler clamped "
-    "to a desk) monitored by an ADXL335 accelerometer and an LPC1768 microcontroller "
+    "to a desk) monitored by an " + SENSOR_NAME + " accelerometer and an LPC1768 microcontroller "
     "running on-board ML. Sections: Summary, Findings per condition, Health trend, "
     "Recommendation. Use only the numbers given. Do not invent measurements. Explain in "
     "plain words why added mass lowers frequency without being damage, if relevant."

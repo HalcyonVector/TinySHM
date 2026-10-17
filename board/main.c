@@ -84,9 +84,22 @@ int main(void)
     lcd_init();
     keypad_init();
     classify_init();
+
+#if SENSOR == SENSOR_MPU6050
+    key = sensor_init();
+    if (key < 0) {                      /* no answer on I2C: show it and stop */
+        uart_puts("\r\nMPU6050 NOT FOUND. Check SDA/SCL/VCC/GND.\r\n");
+        lcd_line(0, "MPU6050 NOT");
+        lcd_line(1, "CHECK WIRING");
+        while (1);
+    }
+    uart_puts("\r\nMPU6050 found, WHO_AM_I = "); uart_putint(key); uart_puts(" (104 = genuine)\r\n");
+#else
+    sensor_init();
+#endif
     sampler_init();
 
-    uart_puts("\r\nDamage detector ready. Flick the ruler.\r\n");
+    uart_puts("Damage detector ready. Flick the ruler.\r\n");
     lcd_line(0, "DAMAGE DETECTOR");
     lcd_line(1, "Flick the ruler");
     sampler_arm();

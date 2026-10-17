@@ -25,31 +25,60 @@ python pc/llm_report.py sim_session   # AI-written inspection report
 Results land in `results/sim/` and `results/sim_session/`.
 
 ## Board setup (ALS-SDA-ARMCTXM3-01, from the lab manual)
+The code supports two sensors. **MPU6050 (GY-521) is the default.** To use an
+ADXL335 (GY-61) instead, set `SENSOR` to `SENSOR_ADXL335` in `board/config.h`
+**and** `SENSOR = "adxl335"` in `pc/config.py`, then retrain.
+
 | What | Connection |
 |---|---|
 | LCD | FRC cable CND -> CNAD, short JP16 and JP5, POT3 = contrast (Lab 9) |
 | Keypad | FRC cable CNB -> CNB3, short JP4 (1,2) (Lab 9) |
 | PC link | DB9 cross cable to CN9, same as Flash Magic, 115200 baud |
+| MPU6050 SDA | P0.19 (I2C1 SDA) on connector CNC, most likely CNC pin 5 |
+| MPU6050 SCL | P0.20 (I2C1 SCL) on connector CNC, most likely CNC pin 6 |
+| MPU6050 GND | Pin 10 of any CNA/CNB/CNC/CND connector is ground |
+| MPU6050 VCC | 3.3 V or 5 V (the GY-521 has its own regulator and pull-up resistors). The FRC connectors have no power pin, so ask the lab staff which header gives 3.3 V or 5 V |
+| MPU6050 AD0, INT, XDA, XCL | Leave unconnected |
+
+**Checking the CNC pins (no tools):** CNC carries P0.15 to P0.22. Pin 1 is
+marked with a small triangle on the connector, so P0.19 and P0.20 should be
+pins 5 and 6 (inferred from the CND layout, so confirm with the connector
+picture in Appendix C or the lab staff). On power-up the board prints
+`MPU6050 found, WHO_AM_I = ...` over UART. If the LCD says
+**MPU6050 NOT FOUND**, swap SDA and SCL, check VCC and GND, and press reset.
+Any WHO_AM_I value is fine (104 is a genuine chip; clones often say 112 or 114
+and work the same).
+
+**Dry run before the sensor arrives:** set `SENSOR_ADXL335` with JP18 shorted
+(2,3), flash, and turn POT4. The LCD and logger should react. This proves the
+Keil build, Flash Magic, LCD, keypad and UART before any sensor wiring. Set it
+back to `SENSOR_MPU6050` afterwards.
+
+**Sensor mounting:** tape the module flat on the ruler near the tip. The code
+reads the **Z** axis, which points along the direction the ruler swings. The
+MPU6050 is set to +-4 g with its built-in 44 Hz filter.
+
+### Using an ADXL335 instead
+| What | Connection |
+|---|---|
 | ADXL335 Z out | AD0.4 = P1.30. Remove the JP18 jumper and put a jumper wire on the JP18 pin that is P1.30 (see the check below) |
 | ADXL335 GND | Pin 10 of any CNA/CNB/CNC/CND connector is ground |
-| ADXL335 VCC | 3.3 V (or 5 V, since the GY-61 module has its own regulator). The FRC connectors have no power pin, so ask the lab staff which header gives 3.3 V or 5 V |
+| ADXL335 VCC | 3.3 V (or 5 V, since the GY-61 module has its own regulator). Ask the lab staff which header gives 3.3 V or 5 V |
 
 **Finding the P1.30 pin on JP18 (5 minutes, no tools):** the manual says "short JP18 (2,3) to use AD0.4 with POT4". Flash the firmware with the jumper on (2,3) and turn POT4: the logger should show the readings change. Then take the jumper off, connect the sensor to pin 2 (most likely P1.30), and flick. If the readings follow the flick, you're done. If they don't, try pin 3, or ask the lab staff.
 
-**Fallback if JP18 doesn't work:** wire the sensor to CND pin 1 (AD0.0 = P0.23), set `ADC_CH 0` and `USE_LCD 0` in `board/config.h`, and read everything on the laptop. The LCD needs CND, so it can't be used in this mode.
-
-**Sensor mounting:** tape the GY-61 flat on the ruler near the tip and use the **Z** output, which points along the direction the ruler swings. Flick gently: the sensor clips past about 3 g.
+**Fallback if JP18 doesn't work:** wire the sensor to CND pin 1 (AD0.0 = P0.23), set `ADC_CH 0` and `USE_LCD 0` in `board/config.h`, and read everything on the laptop. The LCD needs CND, so it can't be used in this mode. Flick gently: the ADXL335 clips past about 3 g.
 
 ## Keil uVision 4 project
 1. Create a new project for NXP LPC1768 and copy `system_LPC17xx.c` into it, as in Lab 6.
 2. Add `board/main.c`, `hw.c`, `features.c`, `classify.c`, and tick "Create HEX file".
-3. Build. It came to about 17 KB of code on a gcc test build, which is under the 32 KB limit.
+3. Build. It came to about 20 KB of code on a gcc test build, which is under the 32 KB limit.
 4. Flash with Flash Magic as in Lab 6, then **close Flash Magic** so the logger can use the COM port.
 
 **Keypad keys:** `0` normal mode · `A` teach a new condition (5 flicks) · `C` self-calibrate the healthy baseline (10 flicks) · `F` switch the LCD between the answer and the raw numbers.
 
 ## Lab day
-1. Wire the ADXL335 and flash the board code. It sends `RES,...` and `RAW,...` once per flick over UART at 115200 baud.
+1. Wire the sensor and flash the board code. It sends `RES,...` and `RAW,...` once per flick over UART at 115200 baud.
 2. Record the flicks. Change `COM5` to your port, which you can find in Device Manager under Ports.
    ```
    python pc/logger.py --port COM5 --label healthy     --step 0 --count 25

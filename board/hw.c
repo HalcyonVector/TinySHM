@@ -60,26 +60,153 @@ void uart_putint(long v)
     while (i) uart_putc(buf[--i]);
 }
 
-/* ------------------------------------------------- ADC + TIMER0 sampler */
-unsigned short samples[N];
-static volatile int state = 0;          /* 0 = waiting, 1 = recording, 2 = done, 3 = hold */
-static volatile int idx = 0, hold = 0;
-static volatile long base_q8 = 0;       /* running average of the at-rest reading, x256 */
+/* ------------------------------------------------------------- sensor */
+#if SENSOR == SENSOR_MPU6050
+/* MPU6050 on I2C1: P0.19 = SDA1, P0.20 = SCL1 (connector CNC).
+   Simple polled I2C master (UM10360 chapter 19 state codes). Every wait
+   has a timeout, so loose wiring shows up as "sensor not found" instead
+   of a frozen board. */
+#define I2C_AA   0x04
+#define I2C_SI   0x08
+#define I2C_STO  0x10
+#define I2C_STA  0x20
+#define I2C_EN   0x40
 
-static unsigned int adc_read(void)
+static int i2c_wait(void)
+{
+    long t = 100000;
+    while (!(LPC_I2C1->I2CONSET & I2C_SI))
+        if (--t == 0) return -1;
+    return (int)LPC_I2C1->I2STAT;
+}
+
+static int i2c_start(void)                      /* 0x08 start, 0x10 repeated start */
+{
+    int st;
+    LPC_I2C1->I2CONSET = I2C_STA;
+    LPC_I2C1->I2CONCLR = I2C_SI;
+    st = i2c_wait();
+    LPC_I2C1->I2CONCLR = I2C_STA;
+    return st;
+}
+
+static int i2c_send(unsigned int b)             /* 0x18 / 0x28 / 0x40 = acked */
+{
+    LPC_I2C1->I2DAT = b & 0xFF;
+    LPC_I2C1->I2CONCLR = I2C_SI;
+    return i2c_wait();
+}
+
+static int i2c_recv(int ack)
+{
+    if (ack) LPC_I2C1->I2CONSET = I2C_AA;
+    else     LPC_I2C1->I2CONCLR = I2C_AA;
+    LPC_I2C1->I2CONCLR = I2C_SI;
+    if (i2c_wait() < 0) return -1;
+    return (int)(LPC_I2C1->I2DAT & 0xFF);
+}
+
+static void i2c_stop(void)
+{
+    long t = 100000;
+    LPC_I2C1->I2CONSET = I2C_STO;
+    LPC_I2C1->I2CONCLR = I2C_SI;
+    while ((LPC_I2C1->I2CONSET & I2C_STO) && --t);
+}
+
+static int mpu_write(unsigned int reg, unsigned int val)
+{
+    int ok = i2c_start() == 0x08 && i2c_send(MPU_ADDR << 1) == 0x18 &&
+             i2c_send(reg) == 0x28 && i2c_send(val) == 0x28;
+    i2c_stop();
+    return ok;
+}
+
+static int mpu_read(unsigned int reg, unsigned char *buf, int n)
+{
+    int i, v, ok = i2c_start() == 0x08 && i2c_send(MPU_ADDR << 1) == 0x18 &&
+                   i2c_send(reg) == 0x28 && i2c_start() == 0x10 &&
+                   i2c_send((MPU_ADDR << 1) | 1) == 0x40;
+    for (i = 0; ok && i < n; i++) {
+        v = i2c_recv(i < n - 1);
+        if (v < 0) ok = 0; else buf[i] = (unsigned char)v;
+    }
+    i2c_stop();
+    return ok;
+}
+
+int sensor_init(void)
+{
+    unsigned char id;
+    unsigned int half = (SystemCoreClock / 4) / (2 * I2C_HZ);   /* PCLK_I2C1 = CCLK/4 */
+
+    LPC_SC->PCONP |= (1 << 19);                      /* I2C1 power */
+    LPC_PINCON->PINSEL1 |= (3u << 6) | (3u << 8);    /* P0.19 = SDA1, P0.20 = SCL1 */
+    LPC_PINCON->PINMODE1 = (LPC_PINCON->PINMODE1 & ~((3u << 6) | (3u << 8))) | (2u << 6) | (2u << 8);
+    LPC_PINCON->PINMODE_OD0 |= (1u << 19) | (1u << 20);  /* open drain, GY-521 has pull-ups */
+    LPC_I2C1->I2CONCLR = I2C_AA | I2C_SI | I2C_STA | I2C_EN;
+    LPC_I2C1->I2SCLH = half;
+    LPC_I2C1->I2SCLL = half;
+    LPC_I2C1->I2CONSET = I2C_EN;
+
+    delay_ms(100);                                   /* MPU6050 power-up time */
+    if (!mpu_read(0x75, &id, 1)) return -1;          /* WHO_AM_I: 0x68 on a real MPU6050 */
+    mpu_write(0x6B, 0x01);                           /* wake up, clock from gyro X PLL */
+    delay_ms(10);
+    mpu_write(0x1A, 0x03);                           /* low-pass filter 44 Hz (anti-alias for FS = 100) */
+    mpu_write(0x19, 1000 / FS - 1);                  /* sample rate 1 kHz / 10 = 100 Hz */
+    mpu_write(0x1C, 0x08);                           /* accelerometer range +-4 g */
+    return id;
+}
+
+static unsigned int sensor_read(void)
+{
+    static unsigned int last = 32768;
+    unsigned char b[2];
+    if (mpu_read(0x3F, b, 2))                        /* ACCEL_ZOUT_H, ACCEL_ZOUT_L */
+        last = (unsigned int)((short)((b[0] << 8) | b[1]) + 32768);
+    return last;                                     /* on a glitch, repeat the last value */
+}
+
+#else
+/* ADXL335 Z output on the ADC */
+int sensor_init(void)
+{
+    LPC_SC->PCONP |= (1 << 12);                      /* ADC power */
+#if ADC_CH == 4
+    LPC_PINCON->PINSEL3 |= (3u << 28);               /* P1.30 = AD0.4 */
+    LPC_PINCON->PINMODE3 = (LPC_PINCON->PINMODE3 & ~(3u << 28)) | (2u << 28);  /* no pull */
+#elif ADC_CH == 0
+    LPC_PINCON->PINSEL1 = (LPC_PINCON->PINSEL1 & ~(3u << 14)) | (1u << 14);    /* P0.23 = AD0.0 */
+    LPC_PINCON->PINMODE1 = (LPC_PINCON->PINMODE1 & ~(3u << 14)) | (2u << 14);
+#else
+#error "set ADC_CH to 4 or 0 in config.h"
+#endif
+    LPC_ADC->ADCR = (1 << 21);                       /* power up the ADC */
+    return 0;
+}
+
+static unsigned int sensor_read(void)
 {
     unsigned int r;
     LPC_ADC->ADCR = (1 << ADC_CH) | (1 << 8) | (1 << 21) | (1 << 24);  /* clk /2, on, start */
     do { r = LPC_ADC->ADGDR; } while (!(r & 0x80000000));
     return (r >> 4) & 0xFFF;
 }
+#endif
+
+/* ------------------------------------------------------- TIMER0 sampler */
+unsigned short samples[N];
+static volatile int state = 0;          /* 0 = waiting, 1 = recording, 2 = done, 3 = hold */
+static volatile int idx = 0, hold = 0;
+static volatile long base_q8 = 0;       /* running average of the at-rest reading, x256 */
 
 void TIMER0_IRQHandler(void)
 {
     unsigned int v;
     long d, trig;
     LPC_TIM0->IR = 1;
-    v = adc_read();
+    v = sensor_read();
     trig = (long)(TRIGGER_G * COUNTS_PER_G);
     switch (state) {
     case 0:                                          /* waiting for a flick */
@@ -107,18 +234,7 @@ void TIMER0_IRQHandler(void)
 
 void sampler_init(void)
 {
-    LPC_SC->PCONP |= (1 << 12) | (1 << 1);           /* ADC, TIMER0 */
-#if ADC_CH == 4
-    LPC_PINCON->PINSEL3 |= (3u << 28);               /* P1.30 = AD0.4 */
-    LPC_PINCON->PINMODE3 = (LPC_PINCON->PINMODE3 & ~(3u << 28)) | (2u << 28);  /* no pull */
-#elif ADC_CH == 0
-    LPC_PINCON->PINSEL1 = (LPC_PINCON->PINSEL1 & ~(3u << 14)) | (1u << 14);    /* P0.23 = AD0.0 */
-    LPC_PINCON->PINMODE1 = (LPC_PINCON->PINMODE1 & ~(3u << 14)) | (2u << 14);
-#else
-#error "set ADC_CH to 4 or 0 in config.h"
-#endif
-    LPC_ADC->ADCR = (1 << 21);                       /* power up the ADC */
-
+    LPC_SC->PCONP |= (1 << 1);                       /* TIMER0 */
     LPC_TIM0->TCR = 2;                               /* reset */
     LPC_TIM0->PR = 0;
     LPC_TIM0->MR0 = pclk_hz() / FS - 1;              /* FS interrupts per second */

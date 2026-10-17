@@ -8,10 +8,19 @@ BOARD = ROOT / "board"
 
 FS = 100            # sampling rate, Hz (TIMER0 triggers the ADC 100 times a second)
 N = 1024            # samples per flick (10.24 s, gives 0.098 Hz FFT resolution)
-ADC_MAX = 4095      # 12-bit ADC
-VREF = 3.3
-SENS_V_PER_G = 0.300                          # ADXL335 typical sensitivity at 3.3 V
-COUNTS_PER_G = SENS_V_PER_G / VREF * 4096     # about 372 ADC counts per g
+# Which accelerometer is fitted. Must match SENSOR in board/config.h.
+SENSOR = "mpu6050"          # "mpu6050" (I2C, default) or "adxl335" (analog, ADC)
+
+if SENSOR == "mpu6050":
+    ADC_MAX = 65535         # 16-bit reading stored as value + 32768
+    ZERO_G = 32768
+    COUNTS_PER_G = 8192.0   # +-4 g range
+else:
+    ADC_MAX = 4095          # 12-bit ADC
+    ZERO_G = 2048
+    VREF = 3.3
+    SENS_V_PER_G = 0.300                          # ADXL335 typical sensitivity at 3.3 V
+    COUNTS_PER_G = SENS_V_PER_G / VREF * 4096     # about 372 ADC counts per g
 
 F_LO, F_HI = 3.0, 40.0    # search band for the main peak, Hz
 PEAK_HALF_WIDTH_HZ = 1.0  # bins within this of the peak count as "main peak" energy

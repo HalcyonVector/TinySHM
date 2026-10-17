@@ -15,7 +15,7 @@ Usage:  python pc/simulate.py            (training set, ~130 flicks)
 import argparse
 import math
 import numpy as np
-from config import FS, N, COUNTS_PER_G, ADC_MAX, DATA
+from config import FS, N, COUNTS_PER_G, ADC_MAX, ZERO_G, DATA
 
 F0 = 11.5        # healthy steel ruler, about 250 mm overhang
 ZETA0 = 0.008    # healthy damping ratio
@@ -74,7 +74,7 @@ def flick(cls, step, rng):
     x += 0.05 * amp * np.exp(-3 * z * w * t) * np.sin(6.27 * w * t)
     # sensor noise and a small tilt offset
     x += rng.normal(0, 0.01, N) + rng.normal(0, 0.02)
-    counts = np.round(2048 + x * COUNTS_PER_G)
+    counts = np.round(ZERO_G + x * COUNTS_PER_G)
     return np.clip(counts, 0, ADC_MAX).astype(int)    # hard flicks clip at the rails
 
 
