@@ -73,25 +73,15 @@ switches to an ADXL335 by changing one line, so you're not stuck.
 You build **one** beam and use it for every test. Never rebuild it between
 tests, because the board learns what this exact beam sounds like.
 
-```
- side view (not to scale)
+![Side view of the beam](img/beam_side_view.png)
 
-   C-clamp
-     ||                ruler A                 ruler B
- ====||=====================================
- ====||====================[clip][clip][clip]===================== [sensor]
-     ||  table edge        |<-- 5 cm overlap -->|
- TABLE   |<----------- 15 cm ----------->|<------- 10 cm more ------->|
-          (ruler A sticks out 15 cm)        total free length = 25 cm
-```
-
-1. **Clamp ruler A.** Lay it flat on the table with 15 cm sticking out past
-   the edge. Put the C-clamp over the part still on the table, about 2 cm
+1. **Clamp ruler A.** Lay it flat on the table with 10 cm sticking out past
+   the edge (20 cm stays on the table). Put the C-clamp over the part still on the table, about 2 cm
    from the edge, and tighten it firmly by hand. Draw a pen line on the table
    along the ruler and at the clamp, so you can put everything back in the
    same place.
 2. **Join ruler B.** Lay ruler B on top of the free end of ruler A so they
-   overlap by 5 cm, both pointing the same way. Ruler B's tip should be 25 cm
+   overlap by 5 cm, both pointing the same way. Ruler B's tip should be 35 cm
    from the table edge.
 3. **Clip the joint.** Put 3 binder clips across the overlap, spread evenly
    (one near each end of the overlap, one in the middle). Fold the clip
@@ -100,8 +90,10 @@ tests, because the board learns what this exact beam sounds like.
    with a clean "boing". If it buzzes or clatters, push the clips on
    harder and tighten the clamp.
 
-The 25 cm length matters: it puts the vibration around 10 Hz, which is what
-the code expects. A much longer beam vibrates too slowly to measure well.
+Keep these lengths: they put the vibration at roughly 6 to 8 times a second
+(an estimate; you'll measure the real value). A much longer beam droops and
+vibrates too slowly to measure well. Measure with the ruler markings and
+write the numbers down so you can rebuild it the same way.
 
 ## Part 2: Stick on the sensor
 
@@ -115,6 +107,8 @@ the code expects. A much longer beam vibrates too slowly to measure well.
    so it can't peel off when you flick.
 
 ## Part 3: Wire the sensor to the board
+
+![Wiring for both sensors](img/wiring.png)
 
 ### If you use the MPU6050 (GY-521)
 

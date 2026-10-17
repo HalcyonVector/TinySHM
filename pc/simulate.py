@@ -17,7 +17,7 @@ import math
 import numpy as np
 from config import FS, N, COUNTS_PER_G, ADC_MAX, ZERO_G, DATA
 
-F0 = 11.5        # healthy steel ruler, about 250 mm overhang
+F0 = 7.0         # healthy two-ruler beam, 35 cm free length (estimate)
 ZETA0 = 0.008    # healthy damping ratio
 
 # (class, step, how many flicks)

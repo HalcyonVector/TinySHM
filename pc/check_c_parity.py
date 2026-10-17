@@ -38,7 +38,9 @@ ok = True
 for i, f in enumerate(FEATURES):
     rel = np.max(np.abs(c[f] - P[:, i]) / (np.abs(P[:, i]) + 1e-6))
     print(f"  {f:13s} max relative difference {rel:.2e}")
-    ok &= rel < 1e-3 or f == "decay_s" and np.max(np.abs(c[f] - P[:, i])) <= 0.25
+    absdiff = np.max(np.abs(c[f] - P[:, i]))
+    # the board uses 32-bit floats, so tiny values can differ by ~1e-6 in absolute terms
+    ok &= rel < 1e-3 or absdiff < 1e-5 or f == "decay_s" and absdiff <= 0.25
 names = np.array([s.upper() for s in CLASSES])
 for k in py:
     agree = (c[k].to_numpy() == names[py[k]]).mean()
