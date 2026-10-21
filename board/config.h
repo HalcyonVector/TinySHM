@@ -24,6 +24,7 @@
 #define F_HI          40.0f
 #define PEAK_HALF_WIDTH_HZ 1.0f
 #define ENV_WIN       25       /* 0.25 s envelope windows */
+#define ZC_BAND_G     0.03f    /* zero-crossing hysteresis, g */
 
 /* ---- Lab board wiring (ALS-SDA-ARMCTXM3-01) ----
    MPU6050: SDA -> P0.19 (SDA1), SCL -> P0.20 (SCL1), both on connector CNC.
@@ -39,6 +40,8 @@
 #define I2C_HZ        100000   /* 100 kHz: slow and safe over jumper wires */
 #define USE_LCD       1
 #define USE_KEYPAD    1
+#define USE_LEDS      1        /* health bar + alarm on LD2-LD9: FRC cable CNA -> CNA1 */
+#define USE_BENCH     1        /* send a BENCH line comparing the 3 frequency methods */
 #define BAUD          115200
 
 #define TRIGGER_G     0.30f    /* start recording when the signal jumps this much */

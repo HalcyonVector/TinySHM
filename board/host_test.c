@@ -15,7 +15,7 @@ int main(int argc, char **argv)
     FILE *fp;
 
     classify_init();
-    printf("file,f1_hz,damping,amp_g,energy_ratio,decay_s,tree,nn,nn_conf,knn,health,change,novelty,changed,unknown\n");
+    printf("file,f1_hz,damping,amp_g,energy_ratio,decay_s,tree,nn,nn_conf,knn,health,change,novelty,changed,unknown,f_peak,f_interp,f_zc\n");
     for (a = 1; a < argc; a++) {
         fp = fopen(argv[a], "r");
         if (!fp) { fprintf(stderr, "cannot open %s\n", argv[a]); continue; }
@@ -24,9 +24,12 @@ int main(int argc, char **argv)
         if (n != N) { fprintf(stderr, "%s: only %d samples\n", argv[a], n); continue; }
         extract_features(adc, f);
         classify(f, &r);
-        printf("%s,%.6g,%.6g,%.6g,%.6g,%.6g,%s,%s,%.3f,%s,%.1f,%.3f,%.3f,%d,%d\n", argv[a],
+        printf("%s,%.6g,%.6g,%.6g,%.6g,%.6g,%s,%s,%.3f,%s,%.1f,%.3f,%.3f,%d,%d,", argv[a],
                f[0], f[1], f[2], f[3], f[4], class_name(r.tree), class_name(r.nn), r.nn_conf,
                class_name(r.knn), r.health, r.change, r.novelty, r.changed, r.unknown);
+        printf("%.6g,", freq_fft(adc, 0));
+        printf("%.6g,", freq_fft(adc, 1));
+        printf("%.6g\n", freq_zero_crossing(adc));
     }
     return 0;
 }

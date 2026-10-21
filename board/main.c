@@ -4,7 +4,10 @@
    features, and runs the models from model.h:
      decision tree, neural network, kNN (with teach mode), health score,
      change detector and unknown-fault detector.
-   Results go to the LCD and to the PC over UART (pc/logger.py).
+   Results go to the LCD, the 8 LEDs (health bar, flashing = UNSAFE or
+   UNKNOWN) and the PC over UART (pc/logger.py). After every flick it also
+   times three frequency methods with SysTick and sends a BENCH line
+   (pc/compare_methods.py).
 
    Keypad:  0 = normal mode
             A = teach a new condition (next 5 flicks)
@@ -61,6 +64,46 @@ static void send_results(const float *f, const Result *r)
     uart_puts("\r\n");
 }
 
+/* Health bar on the 8 LEDs (1 LED per 12.5 %), after a short alarm:
+   all LEDs flash for UNSAFE, alternate for UNKNOWN. */
+static void led_result(const Result *r)
+{
+    int i, n = (int)(r->health / 12.5f + 0.5f);
+    if (r->unsafe || r->unknown) {
+        for (i = 0; i < 8; i++) {
+            if (r->unsafe) leds_set((i & 1) ? 0x00 : 0xFF);
+            else           leds_set((i & 1) ? 0xAA : 0x55);
+            delay_ms(150);
+        }
+    }
+    leds_set((1u << n) - 1u);
+}
+
+#if USE_BENCH
+/* Synopsis objective 5: run the 3 frequency methods on this flick and time
+   each with SysTick. The sampler is paused so its interrupt doesn't add time.
+   BENCH,<peak mHz>,<interpolated mHz>,<zero-crossing mHz>,<us>,<us>,<us> */
+static void send_bench(void)
+{
+    float f[3];
+    unsigned long t[3], t0, per_us = SystemCoreClock / 1000000ul;
+    int m;
+    NVIC_DisableIRQ(TIMER0_IRQn);
+    cycles_start();
+    for (m = 0; m < 3; m++) {
+        t0 = cycles_now();
+        f[m] = (m < 2) ? freq_fft(samples, m) : freq_zero_crossing(samples);
+        t[m] = cycles_now() - t0;
+    }
+    SysTick->CTRL = 0;
+    NVIC_EnableIRQ(TIMER0_IRQn);
+    uart_puts("BENCH,");
+    for (m = 0; m < 3; m++) { uart_putint((long)(f[m] * 1000.0f)); uart_putc(','); }
+    for (m = 0; m < 3; m++) { uart_putint((long)(t[m] / per_us)); if (m < 2) uart_putc(','); }
+    uart_puts("\r\n");
+}
+#endif
+
 static void send_raw(void)
 {
     int i;
@@ -83,6 +126,7 @@ int main(void)
     uart_init();
     lcd_init();
     keypad_init();
+    leds_init();
     classify_init();
 
 #if SENSOR == SENSOR_MPU6050
@@ -165,7 +209,11 @@ int main(void)
             }
             lcd_line(1, line);
             send_results(f, &r);
+            led_result(&r);
         }
+#if USE_BENCH
+        send_bench();
+#endif
         send_raw();                     /* the laptop always gets the raw flick */
         sampler_arm();
     }

@@ -25,6 +25,7 @@ else:
 F_LO, F_HI = 3.0, 40.0    # search band for the main peak, Hz
 PEAK_HALF_WIDTH_HZ = 1.0  # bins within this of the peak count as "main peak" energy
 ENV_WIN = 25              # envelope window, samples (0.25 s)
+ZC_BAND_G = 0.03          # zero-crossing hysteresis band, g (freq_methods.py)
 
 CLASSES = ["healthy", "loose_clamp", "loose_joint", "added_mass"]
 FEATURES = ["f1_hz", "damping", "amp_g", "energy_ratio", "decay_s"]

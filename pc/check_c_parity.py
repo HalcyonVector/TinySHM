@@ -41,6 +41,13 @@ for i, f in enumerate(FEATURES):
     absdiff = np.max(np.abs(c[f] - P[:, i]))
     # the board uses 32-bit floats, so tiny values can differ by ~1e-6 in absolute terms
     ok &= rel < 1e-3 or absdiff < 1e-5 or f == "decay_s" and absdiff <= 0.25
+import freq_methods as fm
+for col, fn in [("f_peak", lambda a: fm.fft_peak(a, False)), ("f_interp", lambda a: fm.fft_peak(a, True)),
+                ("f_zc", fm.zero_crossing)]:
+    ref = np.array([fn(load_raw(f)) for f in files])
+    d = np.max(np.abs(c[col] - ref))
+    print(f"  {col:13s} max difference {d:.2e} Hz")
+    ok &= d < 1e-3
 names = np.array([s.upper() for s in CLASSES])
 for k in py:
     agree = (c[k].to_numpy() == names[py[k]]).mean()

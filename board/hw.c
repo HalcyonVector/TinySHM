@@ -345,3 +345,53 @@ int keypad_get(void)
 #endif
     return -1;
 }
+
+/* ------------------------------------------------------------- LEDs
+   LD2-LD9 on P0.4-P0.11 (Lab 6): FRC cable from CNA to CNA1. */
+void leds_init(void)
+{
+#if USE_LEDS
+    LPC_PINCON->PINSEL0 &= ~(0xFFFFu << 8);          /* P0.4..P0.11 GPIO */
+    LPC_GPIO0->FIODIR |= (0xFFu << 4);
+    LPC_GPIO0->FIOCLR = (0xFFu << 4);
+#endif
+}
+
+void leds_set(unsigned int bits)
+{
+#if USE_LEDS
+    LPC_GPIO0->FIOCLR = (0xFFu << 4);
+    LPC_GPIO0->FIOSET = (bits & 0xFFu) << 4;
+#else
+    (void)bits;
+#endif
+}
+
+/* ------------------------------------------------- SysTick cycle timer
+   Counts CPU cycles (1 cycle = 10 ns at 100 MHz) to time each
+   frequency method. Wraps every 2^24 cycles; the interrupt counts wraps. */
+static volatile unsigned long st_wraps;
+
+void SysTick_Handler(void)
+{
+    st_wraps++;
+}
+
+void cycles_start(void)
+{
+    SysTick->CTRL = 0;
+    SysTick->LOAD = 0xFFFFFFu;
+    SysTick->VAL = 0;
+    st_wraps = 0;
+    SysTick->CTRL = 7;                               /* CPU clock, interrupt, enable */
+}
+
+unsigned long cycles_now(void)
+{
+    unsigned long w, v;
+    do {
+        w = st_wraps;
+        v = SysTick->VAL;
+    } while (w != st_wraps);
+    return w * 0x1000000ul + (0xFFFFFFul - v);
+}

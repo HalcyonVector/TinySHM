@@ -40,15 +40,18 @@ def flicks_from_serial(port, baud):
     with ser:
         print(f"listening on {port} at {baud} baud. Close Flash Magic first. "
               "If nothing arrives, press the board's reset switch (SW1).")
-        board_res = None
+        board_res = board_bench = None
         while True:
             line = ser.readline().decode(errors="ignore").strip()
             if line.startswith("RES,"):
                 board_res = line[4:]
+            elif line.startswith("BENCH,"):
+                board_bench = line[6:]
             elif line.startswith("RAW,"):
                 vals = [int(v) for v in line[4:].split(",") if v]
                 if len(vals) == N:
-                    yield np.array(vals), board_res
+                    yield np.array(vals), board_res, board_bench
+                    board_res = board_bench = None
                 else:
                     print(f"  ignored a broken line ({len(vals)} values)")
             elif line:
@@ -60,7 +63,7 @@ def flicks_from_sim(label, step):
     rng = np.random.default_rng(int(time.time()))
     while True:
         time.sleep(0.3)
-        yield simulate.flick(label, step, rng), None
+        yield simulate.flick(label, step, rng), None, None
 
 
 def main():
@@ -92,11 +95,11 @@ def main():
     with open(log, "a", newline="") as fh:
         cols = (["time", "file", "label", "step"] + FEATURES +
                 ["tree", "nn", "nn_conf", "knn", "health", "change", "novelty",
-                 "changed", "unknown", "unsafe", "board_res"])
+                 "changed", "unknown", "unsafe", "board_res", "board_bench"])
         wr = csv.DictWriter(fh, fieldnames=cols, restval="", extrasaction="ignore")
         if new_log:
             wr.writeheader()
-        for k, (adc, board_res) in enumerate(src):
+        for k, (adc, board_res, board_bench) in enumerate(src):
             i = next_id(folder, args.label, args.step)
             path = folder / f"{args.label}__{args.step}__{i:03d}.txt"
             np.savetxt(path, adc, fmt="%d")
@@ -105,6 +108,7 @@ def main():
             if predictor:
                 row.update(predictor(adc))
             row["board_res"] = board_res or ""
+            row["board_bench"] = board_bench or ""
             wr.writerow(row)
             fh.flush()
             msg = f"[{k + 1}/{args.count}] saved {path.name}"

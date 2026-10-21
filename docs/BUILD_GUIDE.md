@@ -199,12 +199,19 @@ results on the laptop only. The LCD uses CND, so it can't be connected.
   is invisible.
 - Keypad: FRC cable from CNB to CNB3, short JP4 (1,2).
 - PC: DB9 cable to CN9, plus the board's power cable.
+- LEDs (health bar and alarm): FRC cable from CNA to CNA1, as in Lab 6.
+  The 8 LEDs LD2 to LD9 light up as a health bar (8 lit = 100 %). They all
+  flash for UNSAFE, and flash in an alternating pattern for UNKNOWN. If you
+  skip this cable, everything else still works.
 
 ## Part 4: Load the code
 
 1. In Keil uVision 4, create a project for the NXP LPC1768, as in Lab 6.
    Add `system_LPC17xx.c`, plus `board/main.c`, `hw.c`, `features.c` and
-   `classify.c`. Tick "Create HEX file" and build.
+   `classify.c`. Tick "Create HEX file".
+   **Stack size:** open `startup_LPC17xx.s`, click the "Configuration
+   Wizard" tab at the bottom, and set Stack Size to `0x00000800` (2 KB).
+   The default 0x200 (512 bytes) is too tight for the ML code. Then build.
 2. Flash the HEX with Flash Magic, as in Lab 6.
 3. **Close Flash Magic** (it holds the COM port), then press reset on the
    board.
@@ -284,12 +291,20 @@ python pc/llm_report.py real
    ML doesn't.
 4. Press **A** and teach it a new condition in 5 flicks. Press **C** to
    recalibrate the healthy baseline in 10 flicks.
-5. Show the plots in `results/real/` and the AI-written inspection report.
+5. Point at the LED bar: fewer LEDs as the damage grows, all flashing at
+   UNSAFE.
+6. Show the frequency method comparison (objective 5):
+   `python pc/compare_methods.py real`. It uses the timings the board sends
+   on its `BENCH` line after every flick, and writes
+   `results/real/method_comparison.png`.
+7. Show the plots in `results/real/` and the AI-written inspection report.
 
 ## If something goes wrong
 
 | Problem | Fix |
 |---|---|
+| Board resets or freezes after a flick | Stack too small. Set Stack Size to 0x800 in `startup_LPC17xx.s` (Part 4) |
+| LEDs stay off | Check the CNA to CNA1 cable |
 | LCD blank | Turn POT3. Check the CND to CNAD cable and the JP16 and JP5 jumpers |
 | MPU6050 NOT FOUND | Swap SDA and SCL, check VCC and GND, press reset |
 | ADXL335 readings never change | Wrong JP18 pin, or the jumper is still on. Redo the POT4 check |

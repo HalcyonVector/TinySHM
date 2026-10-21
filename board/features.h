@@ -11,4 +11,9 @@
 /* adc: N raw 12-bit samples. feat: 5 outputs. Uses about 8 KB of static RAM. */
 void extract_features(const unsigned short *adc, float *feat);
 
+/* Frequency-method comparison (synopsis objective 5). Call after
+   extract_features(): they reuse its buffers. */
+float freq_fft(const unsigned short *adc, int interpolate);  /* 0 = peak bin, 1 = interpolated */
+float freq_zero_crossing(const unsigned short *adc);
+
 #endif

@@ -126,3 +126,69 @@ void extract_features(const unsigned short *adc, float *feat)
     feat[F_AMP] = amp;
     feat[F_ENERGY] = (total > 0.0f) ? (total - mainp) / total : 0.0f;
 }
+
+/* ------------------------------------------------------------------
+   Synopsis objective 5: three ways to estimate the natural frequency,
+   so their accuracy, run time and memory can be compared on the board.
+   Each one works on the raw samples on its own. They reuse re[]/im[],
+   so call them after extract_features(). Twins: pc/freq_methods.py   */
+
+static void remove_mean_g(const unsigned short *adc, float *x)
+{
+    int n;
+    float mean = 0.0f;
+    for (n = 0; n < N; n++) mean += (float)adc[n];
+    mean /= (float)N;
+    for (n = 0; n < N; n++) x[n] = ((float)adc[n] - mean) / COUNTS_PER_G;
+}
+
+/* Methods 1 and 2: FFT peak bin, optionally refined by parabolic
+   interpolation. Needs re[] + im[] = 2 x N floats = 8 KB of RAM. */
+float freq_fft(const unsigned short *adc, int interpolate)
+{
+    int i, n, kp, k_lo, k_hi;
+    float df, a, b, c, den, delta;
+
+    remove_mean_g(adc, re);
+    for (n = 0; n < N; n++) {
+        re[n] *= 0.5f - 0.5f * cosf(2.0f * PI * (float)n / (float)(N - 1));
+        im[n] = 0.0f;
+    }
+    fft(re, im);
+    for (i = 0; i <= N / 2; i++) re[i] = sqrtf(re[i] * re[i] + im[i] * im[i]);
+    df = (float)FS / (float)N;
+    k_lo = (int)ceilf(F_LO / df);
+    k_hi = (int)floorf(F_HI / df);
+    kp = k_lo;
+    for (i = k_lo + 1; i <= k_hi; i++) if (re[i] > re[kp]) kp = i;
+    if (!interpolate) return (float)kp * df;
+    a = re[kp - 1]; b = re[kp]; c = re[kp + 1];
+    den = a - 2.0f * b + c;
+    delta = (den != 0.0f) ? 0.5f * (a - c) / den : 0.0f;
+    return ((float)kp + delta) * df;
+}
+
+/* Method 3: zero-crossing counting. Counts sign changes with a small
+   hysteresis band (so sensor noise after the ring-down is ignored), then
+   frequency = (crossings - 1) / 2 / (time from first to last crossing).
+   Needs no buffer of its own beyond the samples. */
+float freq_zero_crossing(const unsigned short *adc)
+{
+    int n, state = 0, count = 0, first = -1, last = -1;
+    float mean = 0.0f, v, band = ZC_BAND_G * COUNTS_PER_G;
+
+    for (n = 0; n < N; n++) mean += (float)adc[n];
+    mean /= (float)N;
+    for (n = 0; n < N; n++) {
+        v = (float)adc[n] - mean;
+        if (state <= 0 && v > band) {
+            if (state < 0) { count++; if (first < 0) first = n; last = n; }
+            state = 1;
+        } else if (state >= 0 && v < -band) {
+            if (state > 0) { count++; if (first < 0) first = n; last = n; }
+            state = -1;
+        }
+    }
+    if (count < 3 || last <= first) return 0.0f;
+    return 0.5f * (float)(count - 1) * (float)FS / (float)(last - first);
+}

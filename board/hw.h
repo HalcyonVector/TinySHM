@@ -19,6 +19,12 @@ void lcd_line(int row, const char *s);   /* row 0 or 1, max 16 chars */
 void keypad_init(void);
 int  keypad_get(void);            /* 0..15, or -1 if no key pressed */
 
+void leds_init(void);
+void leds_set(unsigned int bits);   /* bit 0 = LD2 ... bit 7 = LD9 */
+
+void cycles_start(void);          /* SysTick cycle counter */
+unsigned long cycles_now(void);
+
 void delay_ms(unsigned int ms);
 
 #endif
