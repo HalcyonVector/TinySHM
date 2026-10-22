@@ -5,8 +5,8 @@ Everything here is done by hand. No drilling, cutting or soldering.
 ## What you need
 
 - 2 steel rulers, 30 cm, same brand (plus 1 spare)
-- 4 heavy books (thick textbooks), always the same 4. They hold the ruler
-  down instead of a C-clamp
+- 1 C-clamp (G-clamp), 3 or 4 inch. No clamp yet? Use 4 heavy books (see the
+  note in Part 1)
 - 3 binder clips, 25 mm or 32 mm
 - Thin double-sided tape and insulation tape
 - An MPU6050 sensor module (GY-521 board) with headers **already soldered**
@@ -20,13 +20,17 @@ tests, because the board learns what this exact beam sounds like.
 
 ![Side view of the beam](img/beam_side_view.png)
 
-1. **Hold down ruler A with books.** Lay it flat on the table with 10 cm
-   sticking out past the edge (20 cm stays on the table). Stack the 4 heavy
-   books on the part that is on the table, with the front edge of the stack
-   **exactly flush with the table edge**. The ruler must not be able to
-   wiggle under them. Mark the ruler's position and the corner of the bottom
-   book on the table with a pen or a strip of tape, so you can put everything
-   back in the same place. Always use the same 4 books in the same order.
+1. **Clamp ruler A.** Lay it flat on the table with 10 cm sticking out past
+   the edge (20 cm stays on the table). Put the C-clamp over the part still on
+   the table, about 2 cm from the edge, and tighten it firmly by hand. Draw a
+   pen line on the table along the ruler and at the clamp, so you can put
+   everything back in the same place.
+
+   **No C-clamp yet?** Stack 4 heavy textbooks on the part of ruler A that is
+   on the table, with the front of the stack exactly flush with the table
+   edge, and mark where they sit. Everything else stays the same. For the
+   "loose support" fault, take off 1, 2 or 3 books instead of loosening the
+   clamp. Pick one method and use it for all your recordings.
 2. **Join ruler B.** Lay ruler B on top of the free end of ruler A so they
    overlap by 5 cm, both pointing the same way. Ruler B's tip should be 35 cm
    from the table edge.
@@ -35,7 +39,7 @@ tests, because the board learns what this exact beam sounds like.
    handles flat or take the metal handles off, so they don't rattle.
 4. **Check it.** Flick the tip gently. It should ring for several seconds
    with a clean "boing". If it buzzes or clatters, push the clips on
-   harder and check the books are flush with the edge and pressing down flat.
+   harder and tighten the clamp.
 
 Keep these lengths: they put the vibration at roughly 6 to 8 times a second
 (an estimate; you'll measure the real value). A much longer beam droops and
@@ -104,11 +108,11 @@ the SDA and SCL wires and press reset.
 
 **Wire routing:**
 - Tape the wires along the ruler with small pieces of insulation tape,
-  running back toward the books.
-- Run them beside the books (not under them) and leave a loose loop of wire
-  between the books and the board, so the wires never pull on the beam.
-- Tape the wires down on the table next to the books, so the hanging part
-  doesn't swing.
+  running back toward the clamp.
+- Leave a loose loop of wire between the clamp and the board, so the wires
+  never pull on the beam.
+- Tape the wires down on the table just behind the clamp, so the hanging
+  part doesn't swing.
 - Keep the wiring exactly the same for all tests. Wires add a little weight.
 
 **Other board connections** (same as your lab experiments, these DO use FRC cables):
@@ -164,19 +168,19 @@ record it, putting the beam back to healthy after each fault:
 
 | Condition | What to do by hand | Command (label, step, count) |
 |---|---|---|
-| Healthy | Nothing: all 4 books on, 3 clips on | `healthy 0 25` |
+| Healthy | Nothing: clamp tight, 3 clips on | `healthy 0 25` |
 | Coin | Tape a coin on ruler B next to the sensor | `added_mass 1 25` then remove the coin |
 | Loose joint 1 | Remove the middle clip | `loose_joint 1 15` |
 | Loose joint 2 | Also remove one end clip (1 left) | `loose_joint 2 12` then put both back |
-| Loose support 1 | Take the top book off (3 left) | `loose_support 1 12` |
-| Loose support 2 | Take another off (2 left) | `loose_support 2 12` |
-| Loose support 3 | Take another off (1 left, beam still held) | `loose_support 3 10` then put all 4 back |
+| Loose support 1 | Loosen the clamp a 1/4 turn (or take 1 book off) | `loose_support 1 12` |
+| Loose support 2 | Loosen to 1/2 turn (or 2 books off) | `loose_support 2 12` |
+| Loose support 3 | Loosen to 3/4 turn, beam still held (or 3 books off) | `loose_support 3 10` then tighten again |
 
 Each row means
 `python pc/logger.py --port COM5 --label <label> --step <step> --count <count>`.
 
-After every fault, put all 4 books back on your marks (flush with the edge)
-and refit the clips before the next row. In the code this fault is called
+After every fault, re-tighten the clamp along your pen marks and refit the
+clips before the next row. In the code this fault is called
 `loose_support`: the fixed end of the beam is held less firmly.
 
 ## Part 7: Train on the real data and put it on the board
@@ -199,7 +203,7 @@ python pc/llm_report.py real
 ## Part 8: Demo
 
 1. Show a healthy flick: the LCD says HEALTHY with a high health score.
-2. Take books off or remove clips and flick: the LCD names the fault and
+2. Loosen the clamp or remove clips and flick: the LCD names the fault and
    the score drops.
 3. Tape on the coin: it says ADDED MASS, not damage, and the health score
    stays high. This is the point where "frequency only" gets fooled and the
@@ -226,4 +230,4 @@ python pc/llm_report.py real
 | Logger shows nothing | Close Flash Magic, check the COM port number, baud 115200 |
 | Flick doesn't start a recording | Flick a bit harder. The trigger needs a 0.3 g jump |
 | Readings all the same number | The sensor is loose or a wire came off. Check the tape and wires |
-| Results jump around a lot | Flick the same way every time, and check the books and clips haven't moved |
+| Results jump around a lot | Flick the same way every time, and check the clamp and clips haven't moved |

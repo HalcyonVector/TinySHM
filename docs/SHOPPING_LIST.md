@@ -21,7 +21,7 @@ Prices are approximate and include GST.
 | Item | Qty | Approx. price | Used for |
 |---|---|---|---|
 | 30 cm steel ruler, all the same brand | 3 | ₹120 (₹40 each) | Two make the beam, one spare |
-| Heavy books (thick textbooks) | 4 | already owned | Hold ruler A down at the table edge, in place of a C-clamp. Taking books off is the "loose support" fault |
+| C-clamp (G-clamp), 3 or 4 inch | 1 | ₹150 to ₹250 | Clamps ruler A to the table. Still to buy: until then, 4 heavy books stacked flush with the table edge do the same job |
 | Binder clips, 25 mm or 32 mm | 1 small pack (6 or more) | ₹40 | Join the two rulers (3 clips), spares |
 | Thin double-sided tape (not foam tape) | 1 roll | ₹40 | Sticks the sensor to the ruler |
 | Insulation tape | 1 roll | ₹20 | Holds the sensor firmly, tapes the wires along the ruler |
@@ -31,7 +31,7 @@ Prices are approximate and include GST.
 - LPC1768 board (ALS-SDA-ARMCTXM3-01), power cable and DB9 cable
 - FRC cables for the LCD (CND to CNAD), keypad (CNB to CNB3) and LEDs (CNA to CNA1)
 - PC with Keil uVision 4 and Flash Magic
-- A coin (for the added-mass test) and a pen or tape (to mark where the ruler and books go)
+- A coin (for the added-mass test) and a pen or tape (to mark where the ruler and clamp go)
 
 ## Total
 
@@ -39,5 +39,5 @@ Prices are approximate and include GST.
 |---|---|
 | Sensor (with spare) | ₹300 to ₹500 |
 | Wires | ₹120 to ₹170 |
-| Beam and mounting | ₹220 |
-| **Total** | **about ₹640 to ₹890** |
+| Beam and mounting | ₹370 to ₹470 |
+| **Total** | **about ₹790 to ₹1,140** |

@@ -2,7 +2,7 @@
 
 A flicked cantilever rings like a decaying sine wave. Each fault changes
 that wave in a known way:
-  loose support (books removed) -> lower frequency, much more damping, a little rattle
+  loose support (clamp loosened) -> lower frequency, much more damping, a little rattle
   loose joint  -> slightly lower frequency, more damping, more rattle
   added mass   -> lower frequency, damping about the same (NOT damage)
 

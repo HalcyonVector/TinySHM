@@ -1,6 +1,6 @@
 """Predict when the structure becomes unsafe (a mini remaining-life estimate).
 
-Takes the health scores logged while you remove books from the support step by step
+Takes the health scores logged while you loosen the clamp step by step
 (healthy = step 0, then 1/4 turn, 1/2 turn ...), fits a straight line
 (linear regression) through them and extrapolates to the UNSAFE line.
 
@@ -66,7 +66,7 @@ def main():
     ax.grid(color=GRID, linewidth=0.6)
     ax.set_axisbelow(True)
     ax.set_ylim(0, 105)
-    ax.set_xlabel(f"Damage step ({args.fault.replace('_', ' ')}: books removed)", color=INK)
+    ax.set_xlabel(f"Damage step ({args.fault.replace('_', ' ')}: clamp loosened)", color=INK)
     ax.set_ylabel("Health score (%)", color=INK)
     ax.set_title("Predicting when the structure becomes unsafe", color=INK, fontsize=11, loc="left")
     ax.legend(frameon=False, fontsize=8, loc="lower left")

@@ -50,7 +50,8 @@ press reset. Any WHO_AM_I value is fine (104 is a genuine chip; clones often
 say 112 or 114 and work the same).
 
 **Beam:** two 30 cm steel rulers. Ruler A sticks out 10 cm past the table
-edge, held down by a stack of 4 heavy books flush with the edge. Ruler B
+edge, held by a hand-tightened C-clamp (fallback: 4 heavy books stacked flush
+with the edge). Ruler B
 overlaps it by 5 cm, held with 3 binder clips (35 cm free length).
 
 **Sensor mounting:** tape the module flat on ruler B, 2 cm from the tip. The
@@ -72,14 +73,14 @@ The MPU6050 is set to +-4 g with its built-in 44 Hz filter.
 2. Record the flicks. Change `COM5` to your port, which you can find in Device Manager under Ports.
    ```
    python pc/logger.py --port COM5 --label healthy     --step 0 --count 25
-   python pc/logger.py --port COM5 --label loose_support --step 1 --count 12   # 3 books left
-   python pc/logger.py --port COM5 --label loose_support --step 2 --count 12   # 2 books left
-   python pc/logger.py --port COM5 --label loose_support --step 3 --count 10   # 1 book left
+   python pc/logger.py --port COM5 --label loose_support --step 1 --count 12   # clamp 1/4 turn loose
+   python pc/logger.py --port COM5 --label loose_support --step 2 --count 12   # 1/2 turn
+   python pc/logger.py --port COM5 --label loose_support --step 3 --count 10   # 3/4 turn
    python pc/logger.py --port COM5 --label loose_joint --step 1 --count 15   # 1 clip removed
    python pc/logger.py --port COM5 --label loose_joint --step 2 --count 12   # 2 clips removed
    python pc/logger.py --port COM5 --label added_mass  --step 1 --count 25   # coin taped on
    ```
-   Put all 4 books back and re-check "healthy" a few times during the session, because the support drifts.
+   Re-tighten and re-check "healthy" a few times during the session, because the support drifts.
 3. Train on the real data:
    ```
    python pc/build_dataset.py real

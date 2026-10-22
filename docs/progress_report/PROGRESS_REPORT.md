@@ -29,9 +29,9 @@ The firmware fits comfortably on the board: about **20 KB of flash** (Keil limit
 
 ## 3. The test setup
 
-The beam is two 30 cm steel rulers. Ruler A sticks out 10 cm past the table edge and is held down by a stack of four heavy books placed flush with the edge, and ruler B overlaps it by 5 cm, held with three binder clips. This gives a 35 cm cantilever with a natural frequency of roughly 7 Hz. The accelerometer is taped 2 cm from the tip. No drilling, cutting or clamping hardware is needed, and every fault can be undone:
+The beam is two 30 cm steel rulers. Ruler A is clamped to the table with a hand-tightened C-clamp, with 10 cm sticking out, and ruler B overlaps it by 5 cm, held with three binder clips. This gives a 35 cm cantilever with a natural frequency of roughly 7 Hz. The accelerometer is taped 2 cm from the tip. No drilling or cutting is needed, and every fault can be undone:
 
-- **Loose support:** take books off the stack one at a time (damage steps 1, 2, 3), so the fixed end is held less firmly.
+- **Loose support:** loosen the C-clamp by quarter turns (damage steps 1, 2, 3), so the fixed end is held less firmly.
 - **Loose joint:** remove binder clips one by one.
 - **Added mass:** tape a coin near the tip. This is not damage, and the system must tell it apart from real damage.
 
@@ -111,7 +111,7 @@ The kNN health score has an average error of 2.6 points (a plain linear regressi
 
 ![Trend](trend.png)
 
-As books are taken off one at a time, health falls by about 23 points per book, and the trend predicts that the beam becomes unsafe at step 2.4.
+As the clamp is loosened step by step, health falls by about 23 points per quarter turn, and the trend predicts that the beam becomes unsafe at step 2.4.
 
 ### 5.3 Unknown faults
 

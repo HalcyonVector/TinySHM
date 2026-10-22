@@ -26,9 +26,9 @@ FEATURES = ["f1_hz", "damping", "amp_g", "energy_ratio", "decay_s"]
 # Keys are "<class>:<step>" where step is what you write when recording.
 DAMAGE_LEVEL = {
     "healthy:0": 0.0,
-    "loose_support:1": 0.25,   # 1 of the 4 books removed
-    "loose_support:2": 0.50,   # 2 books removed
-    "loose_support:3": 0.75,   # 3 books removed (1 left)
+    "loose_support:1": 0.25,   # clamp 1/4 turn loose (or 1 of 4 books off)
+    "loose_support:2": 0.50,   # 1/2 turn (or 2 books off)
+    "loose_support:3": 0.75,   # 3/4 turn (or 3 books off)
     "loose_joint:1": 0.50,   # 1 binder clip removed
     "loose_joint:2": 1.00,   # 2 binder clips removed
     "added_mass:1": 0.0,     # one coin taped near the tip
