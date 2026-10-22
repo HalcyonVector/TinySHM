@@ -16,7 +16,7 @@ def build(name):
     if not files:
         sys.exit(f"no flick files in {src}")
     out = DATA / f"{name}_features.csv"
-    with open(out, "w", newline="") as fh:
+    with open(out, "w", newline="", encoding="utf-8") as fh:
         wr = csv.writer(fh)
         wr.writerow(["file", "label", "step", "damage"] + FEATURES)
         for p in files:

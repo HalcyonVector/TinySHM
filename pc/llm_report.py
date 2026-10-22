@@ -46,12 +46,12 @@ def facts(dset, model_set):
     lines.append(f"Unsafe threshold: health below {UNSAFE_HEALTH:.0f} %")
     met = RESULTS / model_set / "metrics.json"
     if met.exists():
-        m = json.loads(met.read_text())
+        m = json.loads(met.read_text(encoding="utf-8"))
         lines.append("Classifier accuracy (cross-validated): " + ", ".join(
             f"{k} {v * 100:.0f} %" for k, v in m["accuracy"].items()))
     tr = RESULTS / dset / "trend.json"
     if tr.exists():
-        t = json.loads(tr.read_text())
+        t = json.loads(tr.read_text(encoding="utf-8"))
         lines.append(f"Trend for {t['fault']}: health falls {-t['slope_per_step']:.1f} points per "
                      f"loosening step; predicted to cross the unsafe line at step "
                      f"{t['predicted_unsafe_step']}")
@@ -110,10 +110,15 @@ def main():
                 print(f"{fn.__name__[4:]} call failed ({e})")
     if text is None:
         text = template(f)
+    # LLMs like fancy dashes and quotes; the Windows console can't print them
+    for fancy, plain in (("\u2010", "-"), ("\u2011", "-"), ("\u2012", "-"), ("\u2013", "-"),
+                         ("\u2014", ", "), ("\u2018", "'"), ("\u2019", "'"), ("\u201c", '"'),
+                         ("\u201d", '"'), ("\u2026", "..."), ("\u00a0", " "), ("\u202f", " ")):
+        text = text.replace(fancy, plain)
     out = RESULTS / args.set / "inspection_report.md"
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(text)
-    print(text)
+    out.write_text(text, encoding="utf-8")
+    print(text.encode("ascii", "replace").decode("ascii"))
     print(f"\nsaved {out}")
 
 

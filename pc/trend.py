@@ -45,7 +45,7 @@ def main():
 
     res = RESULTS / args.set
     res.mkdir(parents=True, exist_ok=True)
-    (res / "trend.json").write_text(json.dumps(out, indent=2))
+    (res / "trend.json").write_text(json.dumps(out, indent=2), encoding="utf-8")
 
     fig, ax = plt.subplots(figsize=(6.0, 4.0), dpi=150)
     ax.scatter(d.step + np.random.default_rng(0).normal(0, 0.04, len(d)), d.health,

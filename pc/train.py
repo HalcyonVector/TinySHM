@@ -140,7 +140,7 @@ def main(name):
                "novelty_threshold": novelty_thr, "unseen_test": unseen,
                "tree_feature_importance": dict(zip(FEATURES, tree.feature_importances_.round(3).tolist())),
                "healthy_baseline_mean": dict(zip(FEATURES, h_mean.round(5).tolist()))}
-    (out / "metrics.json").write_text(json.dumps(metrics, indent=2))
+    (out / "metrics.json").write_text(json.dumps(metrics, indent=2), encoding="utf-8")
 
     with open(out / "models.pkl", "wb") as fh:
         pickle.dump({"scaler": scaler, "tree": tree, "mlp": mlp, "Xs": Xs, "y": y,

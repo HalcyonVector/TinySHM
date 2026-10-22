@@ -59,7 +59,7 @@ def main(name):
 
     res = RESULTS / name
     res.mkdir(parents=True, exist_ok=True)
-    (res / "method_comparison.json").write_text(json.dumps(out, indent=2))
+    (res / "method_comparison.json").write_text(json.dumps(out, indent=2), encoding="utf-8")
     fig, ax = plt.subplots(figsize=(6.4, 3.0), dpi=150)
     labels = [l for l, _ in METHODS][::-1]
     vals = [out["methods"][l]["mean_abs_error_hz"] * 1000 for l in labels]

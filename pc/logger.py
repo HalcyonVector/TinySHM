@@ -92,7 +92,7 @@ def main():
 
     src = flicks_from_sim(args.label, args.step) if args.sim else flicks_from_serial(args.port, args.baud)
     new_log = not log.exists()
-    with open(log, "a", newline="") as fh:
+    with open(log, "a", newline="", encoding="utf-8") as fh:
         cols = (["time", "file", "label", "step"] + FEATURES +
                 ["tree", "nn", "nn_conf", "knn", "health", "change", "novelty",
                  "changed", "unknown", "unsafe", "board_res", "board_bench"])

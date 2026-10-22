@@ -74,5 +74,5 @@ def write_model_h(scaler, tree, mlp, knn_damage, Xs, y, h_mean, h_std,
     s.append("static const float KNN_DAMAGE[KNN_N] = {" + arr(knn_damage) + "};  /* -1 = unlabelled */\n")
     s.append("#endif")
     BOARD.mkdir(exist_ok=True)
-    (BOARD / "model.h").write_text("\n".join(s) + "\n")
+    (BOARD / "model.h").write_text("\n".join(s) + "\n", encoding="utf-8")
     print(f"wrote {BOARD / 'model.h'}")

@@ -10,7 +10,7 @@ import json
 class Predictor:
     def __init__(self, model_set):
         m = pickle.load(open(RESULTS / model_set / "models.pkl", "rb"))
-        met = json.loads((RESULTS / model_set / "metrics.json").read_text())
+        met = json.loads((RESULTS / model_set / "metrics.json").read_text(encoding="utf-8"))
         self.m = m
         self.lab = m["damage"] >= 0
         self.h_mean = np.array([met["healthy_baseline_mean"][f] for f in FEATURES])
