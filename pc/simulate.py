@@ -54,7 +54,7 @@ def params(cls, step, rng):
         f *= 0.93 * (1 - 0.035)
         z += 0.015
         rattle = 0.02
-    # flick-to-flick and re-stacking variation
+    # flick-to-flick and re-clamping variation
     f *= 1 + rng.normal(0, 0.004)
     z *= 1 + rng.normal(0, 0.08)
     return f, max(z, 0.002), rattle
