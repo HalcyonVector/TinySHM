@@ -1,13 +1,13 @@
 """Record flicks from the board in the lab.
 
-The board sends one line per flick:  RAW,<1024 ADC values>
+The board sends one line per flick:  RAW,<1024 raw readings>
 (and, once the model is on it, a RES,... line with its own answer).
 
 Usage (in the lab):
   python pc/logger.py --port COM5 --label healthy --step 0 --count 25
-  python pc/logger.py --port COM5 --label loose_clamp --step 1 --count 12
+  python pc/logger.py --port COM5 --label loose_support --step 1 --count 12
 Practice without a board:
-  python pc/logger.py --sim --label loose_clamp --step 2 --count 3
+  python pc/logger.py --sim --label loose_support --step 2 --count 3
 
 Saves every flick to data/<set>/<label>__<step>__<id>.txt (set = real, or
 sim_session with --sim) and appends one row per flick to

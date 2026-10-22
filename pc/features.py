@@ -1,4 +1,4 @@
-"""Turn one flick (N raw ADC counts) into 5 numbers.
+"""Turn one flick (N raw sensor counts) into 5 numbers.
 
 This is a line-by-line twin of board/features.c, so the PC and the board
 compute the same features. If you change one, change the other and rerun
@@ -66,5 +66,5 @@ def extract(adc):
 
 
 def load_raw(path):
-    """A raw flick file is one ADC count per line (what logger.py saves)."""
+    """A raw flick file is one raw count per line (what logger.py saves)."""
     return np.loadtxt(path, dtype=np.int32)

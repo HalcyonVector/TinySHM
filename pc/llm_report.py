@@ -18,14 +18,12 @@ import os
 import urllib.request
 from datetime import date
 import pandas as pd
-from config import DATA, RESULTS, UNSAFE_HEALTH, SENSOR
-
-SENSOR_NAME = "MPU6050" if SENSOR == "mpu6050" else "ADXL335"
+from config import DATA, RESULTS, UNSAFE_HEALTH
 
 SYSTEM = (
     "You are a structural health monitoring engineer. Write a short inspection report "
-    "(under 350 words, markdown) for a lab-scale cantilever beam (a steel ruler clamped "
-    "to a desk) monitored by an " + SENSOR_NAME + " accelerometer and an LPC1768 microcontroller "
+    "(under 350 words, markdown) for a lab-scale cantilever beam (a steel ruler held "
+    "on a desk under a stack of books) monitored by an MPU6050 accelerometer and an LPC1768 microcontroller "
     "running on-board ML. Sections: Summary, Findings per condition, Health trend, "
     "Recommendation. Use only the numbers given. Do not invent measurements. Explain in "
     "plain words why added mass lowers frequency without being damage, if relevant."
@@ -55,7 +53,7 @@ def facts(dset, model_set):
     if tr.exists():
         t = json.loads(tr.read_text())
         lines.append(f"Trend for {t['fault']}: health falls {-t['slope_per_step']:.1f} points per "
-                     f"quarter-turn step; predicted to cross the unsafe line at step "
+                     f"step (one book removed per step); predicted to cross the unsafe line at step "
                      f"{t['predicted_unsafe_step']}")
     return "\n".join(lines)
 

@@ -129,7 +129,6 @@ int main(void)
     leds_init();
     classify_init();
 
-#if SENSOR == SENSOR_MPU6050
     key = sensor_init();
     if (key < 0) {                      /* no answer on I2C: show it and stop */
         uart_puts("\r\nMPU6050 NOT FOUND. Check SDA/SCL/VCC/GND.\r\n");
@@ -138,9 +137,6 @@ int main(void)
         while (1);
     }
     uart_puts("\r\nMPU6050 found, WHO_AM_I = "); uart_putint(key); uart_puts(" (104 = genuine)\r\n");
-#else
-    sensor_init();
-#endif
     sampler_init();
 
     uart_puts("Damage detector ready. Flick the ruler.\r\n");

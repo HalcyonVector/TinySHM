@@ -7,7 +7,7 @@ void uart_puts(const char *s);
 void uart_putint(long v);
 
 /* Sampling: TIMER0 interrupt reads the sensor FS times a second. */
-int  sensor_init(void);           /* MPU6050: WHO_AM_I value, or -1 = not found. ADXL335: 0 */
+int  sensor_init(void);           /* MPU6050 WHO_AM_I value, or -1 = not found */
 void sampler_init(void);
 void sampler_arm(void);           /* wait for the next flick */
 int  sampler_done(void);          /* 1 when N samples are recorded */

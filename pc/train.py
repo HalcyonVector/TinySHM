@@ -36,7 +36,7 @@ from export_c import write_model_h
 COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100"]
 MARKERS = ["o", "s", "^", "D"]
 INK, INK2, GRID = "#1f1f1e", "#5f5e58", "#e4e3dd"
-NICE = {"healthy": "Healthy", "loose_clamp": "Loose clamp",
+NICE = {"healthy": "Healthy", "loose_support": "Loose support",
         "loose_joint": "Loose joint", "added_mass": "Added mass (coin)"}
 
 
@@ -187,7 +187,7 @@ def plot_accuracy(acc, out):
 def plot_confusions(cms, out):
     keys = ["Frequency only (no ML)", "Decision tree", "Neural net (5-8-4)"]
     fig, axes = plt.subplots(1, 3, figsize=(12, 3.9), dpi=150)
-    short = ["Healthy", "Clamp", "Joint", "Coin"]
+    short = ["Healthy", "Support", "Joint", "Coin"]
     for ax, k in zip(axes, keys):
         cm = cms[k]
         ax.imshow(cm, cmap="Blues")

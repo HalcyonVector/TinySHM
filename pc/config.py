@@ -6,28 +6,19 @@ DATA = ROOT / "data"
 RESULTS = ROOT / "results"
 BOARD = ROOT / "board"
 
-FS = 100            # sampling rate, Hz (TIMER0 triggers the ADC 100 times a second)
+FS = 100            # sampling rate, Hz (TIMER0 reads the MPU6050 100 times a second)
 N = 1024            # samples per flick (10.24 s, gives 0.098 Hz FFT resolution)
-# Which accelerometer is fitted. Must match SENSOR in board/config.h.
-SENSOR = "mpu6050"          # "mpu6050" (I2C, default) or "adxl335" (analog, ADC)
-
-if SENSOR == "mpu6050":
-    ADC_MAX = 65535         # 16-bit reading stored as value + 32768
-    ZERO_G = 32768
-    COUNTS_PER_G = 8192.0   # +-4 g range
-else:
-    ADC_MAX = 4095          # 12-bit ADC
-    ZERO_G = 2048
-    VREF = 3.3
-    SENS_V_PER_G = 0.300                          # ADXL335 typical sensitivity at 3.3 V
-    COUNTS_PER_G = SENS_V_PER_G / VREF * 4096     # about 372 ADC counts per g
+# MPU6050 Z reading, stored as value + 32768 (must match board/config.h)
+ADC_MAX = 65535         # 16-bit reading
+ZERO_G = 32768
+COUNTS_PER_G = 8192.0   # +-4 g range
 
 F_LO, F_HI = 3.0, 40.0    # search band for the main peak, Hz
 PEAK_HALF_WIDTH_HZ = 1.0  # bins within this of the peak count as "main peak" energy
 ENV_WIN = 25              # envelope window, samples (0.25 s)
 ZC_BAND_G = 0.03          # zero-crossing hysteresis band, g (freq_methods.py)
 
-CLASSES = ["healthy", "loose_clamp", "loose_joint", "added_mass"]
+CLASSES = ["healthy", "loose_support", "loose_joint", "added_mass"]
 FEATURES = ["f1_hz", "damping", "amp_g", "energy_ratio", "decay_s"]
 
 # Damage level used for the health-score regression (0 = perfect, 1 = worst we test).
@@ -35,9 +26,9 @@ FEATURES = ["f1_hz", "damping", "amp_g", "energy_ratio", "decay_s"]
 # Keys are "<class>:<step>" where step is what you write when recording.
 DAMAGE_LEVEL = {
     "healthy:0": 0.0,
-    "loose_clamp:1": 0.25,   # clamp backed off 1/4 turn
-    "loose_clamp:2": 0.50,   # 1/2 turn
-    "loose_clamp:3": 0.75,   # 3/4 turn
+    "loose_support:1": 0.25,   # 1 of the 4 books removed
+    "loose_support:2": 0.50,   # 2 books removed
+    "loose_support:3": 0.75,   # 3 books removed (1 left)
     "loose_joint:1": 0.50,   # 1 binder clip removed
     "loose_joint:2": 1.00,   # 2 binder clips removed
     "added_mass:1": 0.0,     # one coin taped near the tip

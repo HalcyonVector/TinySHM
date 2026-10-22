@@ -2,11 +2,11 @@
 
 A flicked cantilever rings like a decaying sine wave. Each fault changes
 that wave in a known way:
-  loose clamp  -> lower frequency, much more damping, a little rattle
+  loose support (books removed) -> lower frequency, much more damping, a little rattle
   loose joint  -> slightly lower frequency, more damping, more rattle
   added mass   -> lower frequency, damping about the same (NOT damage)
 
-Output: data/sim/<class>__<step>__<id>.txt, one ADC count per line,
+Output: data/sim/<class>__<step>__<id>.txt, one raw count per line,
 exactly the format logger.py saves from the real board.
 
 Usage:  python pc/simulate.py            (training set, ~130 flicks)
@@ -23,17 +23,17 @@ ZETA0 = 0.008    # healthy damping ratio
 # (class, step, how many flicks)
 PLAN = [
     ("healthy", 0, 30),
-    ("loose_clamp", 1, 12), ("loose_clamp", 2, 12), ("loose_clamp", 3, 10),
+    ("loose_support", 1, 12), ("loose_support", 2, 12), ("loose_support", 3, 10),
     ("loose_joint", 1, 15), ("loose_joint", 2, 12),
     ("added_mass", 1, 30),
 ]
-UNSEEN = [("unseen_joint_and_coin", 1, 10), ("unseen_clamp_and_coin", 1, 10)]
+UNSEEN = [("unseen_joint_and_coin", 1, 10), ("unseen_support_and_coin", 1, 10)]
 
 
 def params(cls, step, rng):
     """Physical parameters (freq, damping, rattle) for one flick."""
     f, z, rattle = F0, ZETA0, 0.0
-    if cls == "loose_clamp":
+    if cls == "loose_support":
         s = step / 4
         f *= 1 - 0.04 * s
         z += 0.030 * s
@@ -50,11 +50,11 @@ def params(cls, step, rng):
         f *= 0.93 * (1 - 0.03)
         z += 0.003
         rattle = 0.10
-    elif cls == "unseen_clamp_and_coin":
+    elif cls == "unseen_support_and_coin":
         f *= 0.93 * (1 - 0.035)
         z += 0.015
         rattle = 0.02
-    # flick-to-flick and re-clamping variation
+    # flick-to-flick and re-stacking variation
     f *= 1 + rng.normal(0, 0.004)
     z *= 1 + rng.normal(0, 0.08)
     return f, max(z, 0.002), rattle

@@ -1,10 +1,10 @@
 """Predict when the structure becomes unsafe (a mini remaining-life estimate).
 
-Takes the health scores logged while you loosen the clamp step by step
+Takes the health scores logged while you remove books from the support step by step
 (healthy = step 0, then 1/4 turn, 1/2 turn ...), fits a straight line
 (linear regression) through them and extrapolates to the UNSAFE line.
 
-Usage:  python pc/trend.py real --fault loose_clamp --upto 2
+Usage:  python pc/trend.py real --fault loose_support --upto 2
         (use only steps 0..2 to predict, then check against step 3 if you recorded it)
 Writes results/<set>/trend.png and trend.json
 """
@@ -23,7 +23,7 @@ INK, INK2, GRID, BLUE = "#1f1f1e", "#5f5e58", "#e4e3dd", "#2a78d6"
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("set", nargs="?", default="real", help="real or sim_session")
-    ap.add_argument("--fault", default="loose_clamp")
+    ap.add_argument("--fault", default="loose_support")
     ap.add_argument("--upto", type=int, default=None, help="only use steps up to this to fit")
     args = ap.parse_args()
 
@@ -66,7 +66,7 @@ def main():
     ax.grid(color=GRID, linewidth=0.6)
     ax.set_axisbelow(True)
     ax.set_ylim(0, 105)
-    ax.set_xlabel(f"Damage step ({args.fault.replace('_', ' ')}: quarter turns)", color=INK)
+    ax.set_xlabel(f"Damage step ({args.fault.replace('_', ' ')}: books removed)", color=INK)
     ax.set_ylabel("Health score (%)", color=INK)
     ax.set_title("Predicting when the structure becomes unsafe", color=INK, fontsize=11, loc="left")
     ax.legend(frameon=False, fontsize=8, loc="lower left")

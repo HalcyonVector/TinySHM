@@ -5,68 +5,13 @@ Everything here is done by hand. No drilling, cutting or soldering.
 ## What you need
 
 - 2 steel rulers, 30 cm, same brand (plus 1 spare)
-- 1 C-clamp (G-clamp), 3 or 4 inch
+- 4 heavy books (thick textbooks), always the same 4. They hold the ruler
+  down instead of a C-clamp
 - 3 binder clips, 25 mm or 32 mm
 - Thin double-sided tape and insulation tape
-- **One** sensor module with headers **already soldered**: an MPU6050
-  (GY-521 board) or an ADXL335 (GY-61 board). See Part 0 to pick.
-- Female-to-female jumper wires (main use) and a few male-to-female (spare)
+- An MPU6050 sensor module (GY-521 board) with headers **already soldered**
+- 4 female-to-female jumper wires (plus spares)
 - A coin, a pen, and the lab's LPC1768 board, PC, Keil and Flash Magic
-
-## Part 0: ADXL335 or MPU6050?
-
-Both measure how hard the ruler shakes (acceleration). The code works with
-either one. You only need **one** of them.
-
-**In simple terms:**
-- The **ADXL335** sends a **voltage**. More shaking means the voltage goes up
-  and down more. The board measures the voltage with its ADC, the same way
-  you read POT4 in the lab.
-- The **MPU6050** sends **numbers** over two wires using a protocol called
-  I2C. The board asks "what is the acceleration?" 100 times a second and the
-  chip answers with a number.
-
-Think of it as an analog thermometer you read by eye (ADXL335) versus a
-digital thermometer that tells you the exact number (MPU6050).
-
-| | ADXL335 (GY-61) | MPU6050 (GY-521) |
-|---|---|---|
-| How it talks | Voltage into the ADC | Digital numbers over I2C |
-| Wires to the board | 3 (VCC, GND, Z) | 4 (VCC, GND, SDA, SCL) |
-| Where it plugs in | JP18 pin (AD0.4) | Connector CNC pins 5 and 6 |
-| Detail in each reading | 12-bit: about 370 steps per g | 16-bit: 8192 steps per g, about 22 times finer |
-| Noise | Picks up electrical noise on the wire and the board | Converts inside the chip, so the wire carries clean numbers |
-| Built-in filter | No | Yes (44 Hz), which removes fast junk before sampling |
-| Extra sensors | None | A gyroscope too (not used, but nice to mention) |
-| Price (approx., not checked today) | Rs 424 at ElectronicsComp | Rs 150 to 250 |
-| Test before it arrives | Yes, POT4 stands in for the sensor | Only the rest of the board (flash the ADXL335 setting and use POT4) |
-| If it isn't working | Readings don't change. Harder to tell why | LCD says "MPU6050 NOT FOUND", so you know it's the wiring |
-| Good for the viva | Uses the ADC lab you already did | Adds an I2C driver, a real embedded protocol |
-| Main risk | Wrong JP18 pin | Wrong CNC pin or SDA/SCL swapped |
-
-**Why the MPU6050 is better here:** cleaner and finer readings mean the
-small frequency and damping changes from a loose clip show up more clearly,
-and that's exactly what the ML depends on. It's also cheaper and tells you
-when the wiring is wrong.
-
-**Why you might still pick the ADXL335:** it's the simplest possible
-wiring (just a voltage), and it uses only things you've already done in the
-lab.
-
-**Recommendation:** MPU6050. If its I2C pins give trouble, the same code
-switches to an ADXL335 by changing one line, so you're not stuck.
-
-**Switching sensors in the code:** set `SENSOR` in `board/config.h`
-(`SENSOR_MPU6050` or `SENSOR_ADXL335`) **and** `SENSOR` in `pc/config.py`
-(`"mpu6050"` or `"adxl335"`). They must match. MPU6050 is the default.
-
-### What to buy for each
-
-| | ADXL335 | MPU6050 |
-|---|---|---|
-| Module | GY-61, headers soldered | GY-521, headers soldered |
-| Wires | 3 female-to-female | 4 female-to-female |
-| Everything else | Same: rulers, clamp, clips, tapes | Same |
 
 ## Part 1: Build the beam
 
@@ -75,11 +20,13 @@ tests, because the board learns what this exact beam sounds like.
 
 ![Side view of the beam](img/beam_side_view.png)
 
-1. **Clamp ruler A.** Lay it flat on the table with 10 cm sticking out past
-   the edge (20 cm stays on the table). Put the C-clamp over the part still on the table, about 2 cm
-   from the edge, and tighten it firmly by hand. Draw a pen line on the table
-   along the ruler and at the clamp, so you can put everything back in the
-   same place.
+1. **Hold down ruler A with books.** Lay it flat on the table with 10 cm
+   sticking out past the edge (20 cm stays on the table). Stack the 4 heavy
+   books on the part that is on the table, with the front edge of the stack
+   **exactly flush with the table edge**. The ruler must not be able to
+   wiggle under them. Mark the ruler's position and the corner of the bottom
+   book on the table with a pen or a strip of tape, so you can put everything
+   back in the same place. Always use the same 4 books in the same order.
 2. **Join ruler B.** Lay ruler B on top of the free end of ruler A so they
    overlap by 5 cm, both pointing the same way. Ruler B's tip should be 35 cm
    from the table edge.
@@ -88,7 +35,7 @@ tests, because the board learns what this exact beam sounds like.
    handles flat or take the metal handles off, so they don't rattle.
 4. **Check it.** Flick the tip gently. It should ring for several seconds
    with a clean "boing". If it buzzes or clatters, push the clips on
-   harder and tighten the clamp.
+   harder and check the books are flush with the edge and pressing down flat.
 
 Keep these lengths: they put the vibration at roughly 6 to 8 times a second
 (an estimate; you'll measure the real value). A much longer beam droops and
@@ -99,7 +46,6 @@ write the numbers down so you can rebuild it the same way.
 
 1. Put a small square of double-sided tape on the back of the GY-521 board
    (the side without the chip).
-   (Same for the GY-61 if you use the ADXL335.)
 2. Press it flat onto ruler B, about 2 cm from the tip, with the pins
    pointing back toward the table. The chip's flat face must be parallel to
    the ruler.
@@ -120,24 +66,20 @@ for the LCD and the keypad.
 
 | Mark on the photo | What it is | Used for |
 |---|---|---|
-| 1: TP2 "3.3V" | Small black test post in the POWER SUPPLY box, bottom right | Sensor VCC (both sensors) |
-| 2: TP3 "GND" | The post right next to TP2 | Sensor GND (both sensors) |
+| 1: TP2 "3.3V" | Small black test post in the POWER SUPPLY box, bottom right | Sensor VCC |
+| 2: TP3 "GND" | The post right next to TP2 | Sensor GND |
 | TP1 "+5V" | Third post | Not needed |
-| 3: JP18 | Small 3-pin jumper in the RS485 box on the left side, just above the coin cell. Normally a plastic cap joins pins 2 and 3, linking the AD0.4 knob (POT4) to the processor | ADXL335 only: cap off, Z wire on the **middle pin** (P1.30). Leave it alone for the MPU6050 |
-| AD0.4 pot (POT4) | Blue knob at the top, next to AD0.5 | Dry run with the ADXL335 setting |
-| 4: CNC | The upright 10-pin socket to the left of the clear processor cover, beside the coin cell | MPU6050 only: SDA and SCL on the **middle pair** of pins (pins 5 and 6) |
+| 3: CNC | The upright 10-pin socket to the left of the clear processor cover, beside the coin cell | SDA and SCL on the **middle pair** of pins (pins 5 and 6) |
 | CNB | The socket on the right of the processor cover (where the ribbon is in the photo) | Keypad cable (CNB to CNB3) |
-| 5: CNAD | Socket just under the LCD, next to POT2 | LCD cable (CND to CNAD) |
-| 6: CNB3 | Socket to the right of the 4x4 keys | Keypad cable |
+| 4: CNAD | Socket just under the LCD, next to POT2 | LCD cable (CND to CNAD) |
+| 5: CNB3 | Socket to the right of the 4x4 keys | Keypad cable |
 
 TP2 and TP3 are test posts, not header pins. If a female jumper end doesn't
 grip them firmly, use a small crocodile-clip lead (about Rs 50 for a pack).
 
-### The wiring for each sensor
+### The wiring: 4 wires
 
-![Wiring for both sensors](img/wiring.png)
-
-#### If you use the MPU6050 (GY-521): 4 wires
+![Wiring the MPU6050](img/wiring.png)
 
 1. Leave CNC empty: no FRC cable in it.
 2. Take 4 female-to-female jumper wires. Push one end of each onto the
@@ -158,40 +100,15 @@ pairs (1-2, 3-4, 5-6, 7-8, 9-10), so pins 5 and 6 are always the middle pair,
 whichever way up the socket is. If the LCD says **MPU6050 NOT FOUND**, swap
 the SDA and SCL wires and press reset.
 
-#### If you use the ADXL335 (GY-61): 3 wires
-
-The GY-61 has 5 pins (VCC, X, Y, Z, GND; some have a 6th, ST). You use 3.
-
-1. Pull the plastic cap off JP18 and keep it safe (you need it back for
-   normal lab experiments).
-2. Take 3 female-to-female jumper wires and connect:
-
-| GY-61 pin | Goes to |
-|---|---|
-| VCC | **TP2 "3.3V"** |
-| GND | **TP3 "GND"** |
-| Z | **JP18 middle pin** (P1.30, AD0.4) |
-| X, Y, ST | Leave unconnected |
-
-**Why the middle pin:** JP18 is a selector. The cap on pins 2 and 3 connects
-the knob to the processor, so the middle pin (pin 2) is the one shared by
-both positions, and that's the processor's input (worked out from the
-layout). To double-check: with the cap on 2 and 3 and the ADXL335 setting
-flashed, turning POT4 should change the logger readings.
-
-**If JP18 doesn't work at all:** put the Z wire on CND pin 1 (P0.23,
-AD0.0), set `ADC_CH 0` and `USE_LCD 0` in `board/config.h`, and read the
-results on the laptop only. The LCD uses CND, so it can't be connected.
-
-### For both sensors
+### Wire routing and other connections
 
 **Wire routing:**
 - Tape the wires along the ruler with small pieces of insulation tape,
-  running back toward the clamp.
-- Leave a loose loop of wire between the clamp and the board, so the wires
-  never pull on the beam.
-- Tape the wires down on the table just behind the clamp, so the hanging
-  part doesn't swing.
+  running back toward the books.
+- Run them beside the books (not under them) and leave a loose loop of wire
+  between the books and the board, so the wires never pull on the beam.
+- Tape the wires down on the table next to the books, so the hanging part
+  doesn't swing.
 - Keep the wiring exactly the same for all tests. Wires add a little weight.
 
 **Other board connections** (same as your lab experiments, these DO use FRC cables):
@@ -221,9 +138,6 @@ results on the laptop only. The LCD uses CND, so it can't be connected.
    - **MPU6050 NOT / CHECK WIRING** means no reply. Swap the SDA and SCL
      wires, check VCC and GND, and press reset. If it still fails, try the
      other two CNC pins next to them.
-   - With the **ADXL335** the LCD always says "Flick the ruler", because an
-     analog sensor can't answer back. Check it by flicking: the logger
-     should show readings that swing up and down.
 
 ## Part 5: First flick
 
@@ -250,19 +164,20 @@ record it, putting the beam back to healthy after each fault:
 
 | Condition | What to do by hand | Command (label, step, count) |
 |---|---|---|
-| Healthy | Nothing: clamp tight, 3 clips on | `healthy 0 25` |
+| Healthy | Nothing: all 4 books on, 3 clips on | `healthy 0 25` |
 | Coin | Tape a coin on ruler B next to the sensor | `added_mass 1 25` then remove the coin |
 | Loose joint 1 | Remove the middle clip | `loose_joint 1 15` |
 | Loose joint 2 | Also remove one end clip (1 left) | `loose_joint 2 12` then put both back |
-| Loose clamp 1 | Loosen the clamp a 1/4 turn | `loose_clamp 1 12` |
-| Loose clamp 2 | Loosen to 1/2 turn | `loose_clamp 2 12` |
-| Loose clamp 3 | Loosen to 3/4 turn (beam still held) | `loose_clamp 3 10` then tighten again |
+| Loose support 1 | Take the top book off (3 left) | `loose_support 1 12` |
+| Loose support 2 | Take another off (2 left) | `loose_support 2 12` |
+| Loose support 3 | Take another off (1 left, beam still held) | `loose_support 3 10` then put all 4 back |
 
 Each row means
 `python pc/logger.py --port COM5 --label <label> --step <step> --count <count>`.
 
-After every fault, re-tighten the clamp along your pen marks and refit the
-clips before the next row.
+After every fault, put all 4 books back on your marks (flush with the edge)
+and refit the clips before the next row. In the code this fault is called
+`loose_support`: the fixed end of the beam is held less firmly.
 
 ## Part 7: Train on the real data and put it on the board
 
@@ -277,14 +192,14 @@ beam.
 
 Then make the trend graph and report:
 ```
-python pc/trend.py real --fault loose_clamp --upto 2
+python pc/trend.py real --fault loose_support --upto 2
 python pc/llm_report.py real
 ```
 
 ## Part 8: Demo
 
 1. Show a healthy flick: the LCD says HEALTHY with a high health score.
-2. Loosen the clamp or remove clips and flick: the LCD names the fault and
+2. Take books off or remove clips and flick: the LCD names the fault and
    the score drops.
 3. Tape on the coin: it says ADDED MASS, not damage, and the health score
    stays high. This is the point where "frequency only" gets fooled and the
@@ -307,9 +222,8 @@ python pc/llm_report.py real
 | LEDs stay off | Check the CNA to CNA1 cable |
 | LCD blank | Turn POT3. Check the CND to CNAD cable and the JP16 and JP5 jumpers |
 | MPU6050 NOT FOUND | Swap SDA and SCL, check VCC and GND, press reset |
-| ADXL335 readings never change | Wrong JP18 pin, or the jumper is still on. Redo the POT4 check |
 | Board does nothing after flashing | Close Flash Magic and press reset (it can hold the board in reset) |
 | Logger shows nothing | Close Flash Magic, check the COM port number, baud 115200 |
 | Flick doesn't start a recording | Flick a bit harder. The trigger needs a 0.3 g jump |
 | Readings all the same number | The sensor is loose or a wire came off. Check the tape and wires |
-| Results jump around a lot | Flick the same way every time, and check the clamp and clips haven't moved |
+| Results jump around a lot | Flick the same way every time, and check the books and clips haven't moved |

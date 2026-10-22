@@ -22,16 +22,16 @@ The firmware fits comfortably on the board: about **20 KB of flash** (Keil limit
 | Decision method | Alarm when the frequency drops by more than about 3 % | Machine learning on 5 features: decision tree, kNN and a neural network, plus a health score, change detector, unknown-fault detector and on-the-spot learning |
 | Features | Natural frequency only | Natural frequency, damping, amplitude, energy ratio (rattle) and decay time |
 | FFT | CMSIS-DSP library | Our own radix-2 FFT in plain C with parabolic peak interpolation, checked against NumPy |
-| Sensor | ADXL335 (analog) | Supports both ADXL335 (ADC) and MPU6050 (I2C, 16-bit, built-in filter), selected with one line in `config.h` |
+| Sensor | ADXL335 (analog, 12-bit ADC) | MPU6050 over I2C: 16-bit readings (about 22 times finer), built-in 44 Hz filter, and the board can detect a wiring fault |
 | Output | LED alarm and UART | 8-LED health bar and alarm, 16x2 LCD, 4x4 keypad menu, and full results over UART |
 | Frequency methods (objective 5) | Compare FFT and zero-crossing | Three methods implemented on the board and timed with SysTick, with accuracy compared on the laptop |
 | PC side | Plotting | Complete Python pipeline: logging, training, plots, C/Python verification, trend prediction and an AI-written report |
 
 ## 3. The test setup
 
-The beam is two 30 cm steel rulers. Ruler A is clamped to the table with 10 cm sticking out, and ruler B overlaps it by 5 cm, held with three binder clips. This gives a 35 cm cantilever with a natural frequency of roughly 7 Hz. The accelerometer is taped 2 cm from the tip. No drilling or cutting is needed, and every fault can be undone:
+The beam is two 30 cm steel rulers. Ruler A sticks out 10 cm past the table edge and is held down by a stack of four heavy books placed flush with the edge, and ruler B overlaps it by 5 cm, held with three binder clips. This gives a 35 cm cantilever with a natural frequency of roughly 7 Hz. The accelerometer is taped 2 cm from the tip. No drilling, cutting or clamping hardware is needed, and every fault can be undone:
 
-- **Loose clamp:** loosen the C-clamp by quarter turns (damage steps 1, 2, 3).
+- **Loose support:** take books off the stack one at a time (damage steps 1, 2, 3), so the fixed end is held less firmly.
 - **Loose joint:** remove binder clips one by one.
 - **Added mass:** tape a coin near the tip. This is not damage, and the system must tell it apart from real damage.
 
@@ -55,7 +55,7 @@ When the beam is flicked, the board samples the accelerometer at 100 Hz for 1024
 
 ![Example flick](flick_signal.png)
 
-The plot shows why frequency alone is not enough. A loose clamp moves f1 by only about 1 % (7.01 Hz to 6.93 Hz), but the decay time falls from 6.5 s to 2.2 s, because the loose clamp loses energy through friction. Damping and decay time make the fault obvious.
+The plot shows why frequency alone is not enough. A loose support moves f1 by only about 1 % (7.01 Hz to 6.93 Hz), but the decay time falls from 6.5 s to 2.2 s, because the loosely held end loses energy through friction. Damping and decay time make the fault obvious.
 
 ### 4.2 The on-board machine learning
 
@@ -92,8 +92,8 @@ These results use 121 simulated flicks generated from the physics of a damped ca
 
 | Method | Accuracy |
 |---|---|
-| Frequency only (the synopsis rule) | 73 % |
-| Decision tree | 98 % |
+| Frequency only (the synopsis rule) | 71 % |
+| Decision tree | 97 % |
 | kNN (k = 3) | 100 % |
 | Neural network | 100 % |
 
@@ -107,11 +107,11 @@ The frequency-only method fails mainly on the coin. Added mass lowers the freque
 
 ![Health score](health_score.png)
 
-The kNN health score has an average error of 2.5 points (a plain linear regression gives 12.5).
+The kNN health score has an average error of 2.6 points (a plain linear regression gives 12.7).
 
 ![Trend](trend.png)
 
-With the clamp loosened step by step, health falls by about 27 points per quarter turn, and the trend predicts that the beam becomes unsafe at step 2.2.
+As books are taken off one at a time, health falls by about 23 points per book, and the trend predicts that the beam becomes unsafe at step 2.4.
 
 ### 5.3 Unknown faults
 
@@ -146,7 +146,6 @@ The C code on the board gives the same features and answers as the Python code o
 | Item | Connection |
 |---|---|
 | MPU6050 SDA / SCL | P0.19 / P0.20 (I2C1), middle pair of connector CNC |
-| ADXL335 Z output | AD0.4 (P1.30), middle pin of JP18 |
 | Sensor power | TP2 (3.3 V) and TP3 (GND) |
 | LCD | FRC cable CND to CNAD |
 | Keypad | FRC cable CNB to CNB3 |

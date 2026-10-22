@@ -61,7 +61,6 @@ void uart_putint(long v)
 }
 
 /* ------------------------------------------------------------- sensor */
-#if SENSOR == SENSOR_MPU6050
 /* MPU6050 on I2C1: P0.19 = SDA1, P0.20 = SCL1 (connector CNC).
    Simple polled I2C master (UM10360 chapter 19 state codes). Every wait
    has a timeout, so loose wiring shows up as "sensor not found" instead
@@ -167,33 +166,6 @@ static unsigned int sensor_read(void)
         last = (unsigned int)((short)((b[0] << 8) | b[1]) + 32768);
     return last;                                     /* on a glitch, repeat the last value */
 }
-
-#else
-/* ADXL335 Z output on the ADC */
-int sensor_init(void)
-{
-    LPC_SC->PCONP |= (1 << 12);                      /* ADC power */
-#if ADC_CH == 4
-    LPC_PINCON->PINSEL3 |= (3u << 28);               /* P1.30 = AD0.4 */
-    LPC_PINCON->PINMODE3 = (LPC_PINCON->PINMODE3 & ~(3u << 28)) | (2u << 28);  /* no pull */
-#elif ADC_CH == 0
-    LPC_PINCON->PINSEL1 = (LPC_PINCON->PINSEL1 & ~(3u << 14)) | (1u << 14);    /* P0.23 = AD0.0 */
-    LPC_PINCON->PINMODE1 = (LPC_PINCON->PINMODE1 & ~(3u << 14)) | (2u << 14);
-#else
-#error "set ADC_CH to 4 or 0 in config.h"
-#endif
-    LPC_ADC->ADCR = (1 << 21);                       /* power up the ADC */
-    return 0;
-}
-
-static unsigned int sensor_read(void)
-{
-    unsigned int r;
-    LPC_ADC->ADCR = (1 << ADC_CH) | (1 << 8) | (1 << 21) | (1 << 24);  /* clk /2, on, start */
-    do { r = LPC_ADC->ADGDR; } while (!(r & 0x80000000));
-    return (r >> 4) & 0xFFF;
-}
-#endif
 
 /* ------------------------------------------------------- TIMER0 sampler */
 unsigned short samples[N];
