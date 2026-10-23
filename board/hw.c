@@ -61,56 +61,106 @@ void uart_putint(long v)
 }
 
 /* ------------------------------------------------------------- sensor */
-/* MPU6050 on I2C1: P0.19 = SDA1, P0.20 = SCL1 (connector CNC).
-   Simple polled I2C master (UM10360 chapter 19 state codes). Every wait
-   has a timeout, so loose wiring shows up as "sensor not found" instead
-   of a frozen board. */
-#define I2C_AA   0x04
-#define I2C_SI   0x08
-#define I2C_STO  0x10
-#define I2C_STA  0x20
-#define I2C_EN   0x40
+/* MPU6050 on P0.19 = SDA, P0.20 = SCL (connector CNC pins 5 and 6).
+   The I2C is done in software ("bit-banged") on these two GPIO pins
+   instead of with the I2C1 peripheral: every step is plain code, so a
+   glitch can't leave the peripheral in a stuck state. A line is driven
+   low by making the pin an output (its output latch is 0) and released
+   by making it an input, so the GY-521's 4.7k pull-ups pull it high.
+   Every wait has a timeout, so bad wiring shows up as "not found"
+   instead of a frozen board. */
+#define SDA_BIT  (1u << 19)
+#define SCL_BIT  (1u << 20)
 
-static int i2c_wait(void)
+static unsigned int i2c_loops;                  /* busy-loop count for a quarter bit */
+
+static void i2c_delay(void)
 {
-    long t = 100000;
-    while (!(LPC_I2C1->I2CONSET & I2C_SI))
-        if (--t == 0) return -1;
-    return (int)LPC_I2C1->I2STAT;
+    volatile unsigned int i;
+    for (i = 0; i < i2c_loops; i++);
 }
 
-static int i2c_start(void)                      /* 0x08 start, 0x10 repeated start */
+static void sda_low(void)  { LPC_GPIO0->FIODIR |= SDA_BIT; }
+static void sda_high(void) { LPC_GPIO0->FIODIR &= ~SDA_BIT; }
+static void scl_low(void)  { LPC_GPIO0->FIODIR |= SCL_BIT; }
+static int  sda_read(void) { return (LPC_GPIO0->FIOPIN & SDA_BIT) != 0; }
+
+static int scl_high(void)                       /* release SCL, wait if a chip holds it low */
 {
-    int st;
-    LPC_I2C1->I2CONSET = I2C_STA;
-    LPC_I2C1->I2CONCLR = I2C_SI;
-    st = i2c_wait();
-    LPC_I2C1->I2CONCLR = I2C_STA;
-    return st;
+    long t = 10000;
+    LPC_GPIO0->FIODIR &= ~SCL_BIT;
+    while (!(LPC_GPIO0->FIOPIN & SCL_BIT))
+        if (--t == 0) return 0;
+    return 1;
 }
 
-static int i2c_send(unsigned int b)             /* 0x18 / 0x28 / 0x40 = acked */
+static void i2c_start(void)                     /* also works as a repeated start */
 {
-    LPC_I2C1->I2DAT = b & 0xFF;
-    LPC_I2C1->I2CONCLR = I2C_SI;
-    return i2c_wait();
-}
-
-static int i2c_recv(int ack)
-{
-    if (ack) LPC_I2C1->I2CONSET = I2C_AA;
-    else     LPC_I2C1->I2CONCLR = I2C_AA;
-    LPC_I2C1->I2CONCLR = I2C_SI;
-    if (i2c_wait() < 0) return -1;
-    return (int)(LPC_I2C1->I2DAT & 0xFF);
+    sda_high(); i2c_delay();
+    scl_high(); i2c_delay();
+    sda_low();  i2c_delay();
+    scl_low();  i2c_delay();
 }
 
 static void i2c_stop(void)
 {
-    long t = 100000;
-    LPC_I2C1->I2CONSET = I2C_STO;
-    LPC_I2C1->I2CONCLR = I2C_SI;
-    while ((LPC_I2C1->I2CONSET & I2C_STO) && --t);
+    sda_low();  i2c_delay();
+    scl_high(); i2c_delay();
+    sda_high(); i2c_delay();
+}
+
+static int i2c_send(unsigned int b)             /* 1 = the chip acknowledged */
+{
+    int i, ack;
+    for (i = 7; i >= 0; i--) {
+        if (b & (1u << i)) sda_high(); else sda_low();
+        i2c_delay();
+        if (!scl_high()) return 0;
+        i2c_delay(); i2c_delay();
+        scl_low(); i2c_delay();
+    }
+    sda_high(); i2c_delay();                    /* let the chip pull SDA low = ACK */
+    if (!scl_high()) return 0;
+    i2c_delay();
+    ack = !sda_read();
+    i2c_delay();
+    scl_low(); i2c_delay();
+    return ack;
+}
+
+static int i2c_recv(int ack)
+{
+    int i, b = 0;
+    sda_high();
+    for (i = 0; i < 8; i++) {
+        i2c_delay();
+        if (!scl_high()) return -1;
+        i2c_delay();
+        b = (b << 1) | sda_read();
+        i2c_delay();
+        scl_low(); i2c_delay();
+    }
+    if (ack) sda_low(); else sda_high();        /* ACK = more bytes wanted */
+    i2c_delay();
+    if (!scl_high()) return -1;
+    i2c_delay(); i2c_delay();
+    scl_low(); i2c_delay();
+    sda_high();
+    return b;
+}
+
+static void i2c_recover(void)
+{
+    /* If the board was reset in the middle of a read, a chip may still be
+       holding SDA low. Nine clock pulses let it finish, then a STOP. */
+    int i;
+    sda_high();
+    for (i = 0; i < 9; i++) {
+        scl_low(); i2c_delay(); i2c_delay();
+        scl_high(); i2c_delay(); i2c_delay();
+    }
+    i2c_start();
+    i2c_stop();
 }
 
 static unsigned int mpu_addr = MPU_ADDR;     /* 0x68, or 0x69 if AD0 is high */
@@ -118,17 +168,19 @@ char sensor_diag[17];                           /* why the sensor was not found,
 
 static int mpu_write(unsigned int reg, unsigned int val)
 {
-    int ok = i2c_start() == 0x08 && i2c_send(mpu_addr << 1) == 0x18 &&
-             i2c_send(reg) == 0x28 && i2c_send(val) == 0x28;
+    int ok;
+    i2c_start();
+    ok = i2c_send(mpu_addr << 1) && i2c_send(reg) && i2c_send(val);
     i2c_stop();
     return ok;
 }
 
 static int mpu_read(unsigned int reg, unsigned char *buf, int n)
 {
-    int i, v, ok = i2c_start() == 0x08 && i2c_send(mpu_addr << 1) == 0x18 &&
-                   i2c_send(reg) == 0x28 && i2c_start() == 0x10 &&
-                   i2c_send((mpu_addr << 1) | 1) == 0x40;
+    int i, v, ok;
+    i2c_start();
+    ok = i2c_send(mpu_addr << 1) && i2c_send(reg);
+    if (ok) { i2c_start(); ok = i2c_send((mpu_addr << 1) | 1); }
     for (i = 0; ok && i < n; i++) {
         v = i2c_recv(i < n - 1);
         if (v < 0) ok = 0; else buf[i] = (unsigned char)v;
@@ -139,93 +191,73 @@ static int mpu_read(unsigned int reg, unsigned char *buf, int n)
 
 static char hex_digit(int v) { return (char)(v < 10 ? '0' + v : 'A' + v - 10); }
 
-/* First step of the WHO_AM_I read that went wrong, for the LCD:
-   "S" start, "A" address, "R" register, "P" repeated start, "D" read
-   address, "V" WHO_AM_I value; followed by the I2C status in hex (for "V",
-   the value itself), or "TO" for a timeout. */
-static int probe_diag(char *d)                  /* returns WHO_AM_I, or -1 */
+/* WHO_AM_I of the chips that behave like an MPU6050 (6050, 6500 and 9250
+   families and common clones). */
+static int is_mpu_id(int id)
 {
-    int st, id = -1;
-    const char *step = "S";
-    st = i2c_start();
-    if (st == 0x08) { step = "A"; st = i2c_send(mpu_addr << 1); }
-    if (st == 0x18) { step = "R"; st = i2c_send(0x75); }
-    if (st == 0x28) { step = "P"; st = i2c_start(); }
-    if (st == 0x10) { step = "D"; st = i2c_send((mpu_addr << 1) | 1); }
-    if (st == 0x40) {                            /* read the byte, NACK it: 0x58 = got it */
-        step = "V";
-        LPC_I2C1->I2CONCLR = I2C_AA;
-        LPC_I2C1->I2CONCLR = I2C_SI;
-        st = i2c_wait();
-        if (st == 0x58) st = id = (int)(LPC_I2C1->I2DAT & 0xFF);   /* show WHO_AM_I itself */
-    }
-    i2c_stop();
-    d[0] = step[0];
-    d[1] = '=';
-    if (st < 0) { d[2] = 'T'; d[3] = 'O'; }
-    else        { d[2] = hex_digit((st >> 4) & 0xF); d[3] = hex_digit(st & 0xF); }
-    d[4] = 0;
-    return id;
+    return id == 0x68 || id == 0x69 || id == 0x70 || id == 0x71 ||
+           id == 0x72 || id == 0x73 || id == 0x98 || id == 0x19;
 }
 
 int sensor_init(void)
 {
-    unsigned char id;
-    unsigned int half = (SystemCoreClock / 4) / (2 * I2C_HZ);   /* PCLK_I2C1 = CCLK/4 */
-    int sda, scl, tries, i;
+    unsigned char id = 0;
+    int a, k, n, sda, scl, found;
 
-    /* Wiring check before I2C starts: with weak internal pull-downs, a pin
-       wired to the GY-521 reads 1 (its 4.7k pull-ups win), a pin wired to
-       nothing reads 0. */
+    i2c_loops = SystemCoreClock / (4 * 4 * I2C_HZ);  /* ~4 cycles per loop, 4 quarters per bit */
+    if (i2c_loops == 0) i2c_loops = 1;
+
     LPC_PINCON->PINSEL1 &= ~((3u << 6) | (3u << 8));             /* GPIO */
-    LPC_GPIO0->FIODIR &= ~((1u << 19) | (1u << 20));             /* inputs */
+    LPC_GPIO0->FIODIR &= ~(SDA_BIT | SCL_BIT);                    /* released */
+
+    /* Wiring check: with weak internal pull-downs, a pin wired to the
+       GY-521 reads 1 (its 4.7k pull-ups win), a pin wired to nothing
+       reads 0. */
     LPC_PINCON->PINMODE1 |= (3u << 6) | (3u << 8);               /* pull-down */
     delay_ms(5);
-    sda = (LPC_GPIO0->FIOPIN >> 19) & 1;
-    scl = (LPC_GPIO0->FIOPIN >> 20) & 1;
+    sda = (LPC_GPIO0->FIOPIN & SDA_BIT) != 0;
+    scl = (LPC_GPIO0->FIOPIN & SCL_BIT) != 0;
 
-    /* Bus recovery: if the board was reset in the middle of a read, the
-       sensor may still hold SDA low. Nine clock pulses on SCL let it finish. */
-    LPC_PINCON->PINMODE1 = (LPC_PINCON->PINMODE1 & ~(3u << 8)) | (2u << 8);
-    LPC_PINCON->PINMODE_OD0 |= (1u << 20);
-    LPC_GPIO0->FIOSET = (1u << 20);
-    LPC_GPIO0->FIODIR |= (1u << 20);
-    for (i = 0; i < 18; i++) {
-        if (i & 1) LPC_GPIO0->FIOSET = (1u << 20);
-        else       LPC_GPIO0->FIOCLR = (1u << 20);
-        delay_ms(1);
-    }
-    LPC_GPIO0->FIODIR &= ~(1u << 20);
-
-    LPC_SC->PCONP |= (1 << 19);                      /* I2C1 power */
-    LPC_PINCON->PINSEL1 |= (3u << 6) | (3u << 8);    /* P0.19 = SDA1, P0.20 = SCL1 */
+    /* From now on: no internal pull, open drain, output latch 0. */
     LPC_PINCON->PINMODE1 = (LPC_PINCON->PINMODE1 & ~((3u << 6) | (3u << 8))) | (2u << 6) | (2u << 8);
-    LPC_PINCON->PINMODE_OD0 |= (1u << 19) | (1u << 20);  /* open drain, GY-521 has pull-ups */
-    LPC_I2C1->I2CONCLR = I2C_AA | I2C_SI | I2C_STA | I2C_EN;
-    LPC_I2C1->I2SCLH = half;
-    LPC_I2C1->I2SCLL = half;
-    LPC_I2C1->I2CONSET = I2C_EN;
+    LPC_PINCON->PINMODE_OD0 |= SDA_BIT | SCL_BIT;
+    LPC_GPIO0->FIOCLR = SDA_BIT | SCL_BIT;
 
     delay_ms(100);                                   /* MPU6050 power-up time */
-    /* WHO_AM_I: 0x68 on a real MPU6050. The first transfer after a reset
-       can fail (the sensor may still be half-way through the last read),
-       so try a few times at 0x68, then at 0x69 (AD0 high). */
-    for (tries = 0; tries < 10; tries++) {
-        mpu_addr = (tries < 5) ? MPU_ADDR : MPU_ADDR + 1;
-        if (mpu_read(0x75, &id, 1)) break;
-        delay_ms(10);
+    i2c_recover();
+
+    /* Look for the sensor at 0x69 first (AD0 tied high), then 0x68. A
+       chip only counts if WHO_AM_I looks like an MPU. */
+    found = 0;
+    for (k = 0; k < 6 && !found; k++) {
+        mpu_addr = (k & 1) ? MPU_ADDR : MPU_ADDR + 1;
+        if (mpu_read(0x75, &id, 1) && is_mpu_id(id)) found = 1;
+        else delay_ms(5);
     }
-    if (tries == 10) {
+
+    if (!found) {
+        /* LCD line 2: pin levels, then the address of every chip that
+           answered (for example "S1C1 50 68"), so we can see what is on
+           the bus. "--" = nothing answered. */
+        sensor_diag[0] = 'S'; sensor_diag[1] = (char)('0' + sda);
+        sensor_diag[2] = 'C'; sensor_diag[3] = (char)('0' + scl);
+        n = 4;
+        for (a = 0x08; a < 0x78 && n <= 13; a++) {
+            i2c_start();
+            k = i2c_send(a << 1);
+            i2c_stop();
+            if (k) {
+                sensor_diag[n++] = ' ';
+                sensor_diag[n++] = hex_digit(a >> 4);
+                sensor_diag[n++] = hex_digit(a & 0xF);
+            }
+        }
+        if (n == 4) { sensor_diag[n++] = ' '; sensor_diag[n++] = '-'; sensor_diag[n++] = '-'; }
+        sensor_diag[n] = 0;
         mpu_addr = MPU_ADDR;
-        /* LCD line 2, e.g. "SDA1 SCL1 A=20" */
-        sensor_diag[0] = 'S'; sensor_diag[1] = 'D'; sensor_diag[2] = 'A';
-        sensor_diag[3] = (char)('0' + sda); sensor_diag[4] = ' ';
-        sensor_diag[5] = 'S'; sensor_diag[6] = 'C'; sensor_diag[7] = 'L';
-        sensor_diag[8] = (char)('0' + scl); sensor_diag[9] = ' ';
-        i = probe_diag(sensor_diag + 10);
-        if (i < 0) return -1;
-        id = (unsigned char)i;                       /* the step-by-step read worked */
+        return -1;
     }
+
     mpu_write(0x6B, 0x01);                           /* wake up, clock from gyro X PLL */
     delay_ms(10);
     mpu_write(0x1A, 0x03);                           /* low-pass filter 44 Hz (anti-alias for FS = 100) */

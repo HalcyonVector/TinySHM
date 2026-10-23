@@ -21,7 +21,7 @@
      pull-up resistors. LCD (CND->CNAD), keypad (CNB->CNB3) and LEDs
      (CNA->CNA1) all work alongside it.                                    */
 #define MPU_ADDR      0x68     /* MPU6050 I2C address (AD0 pin low, the GY-521 default) */
-#define I2C_HZ        100000   /* 100 kHz: slow and safe over jumper wires */
+#define I2C_HZ        100000   /* about 100 kHz or less (software I2C): slow and safe over jumper wires */
 #define USE_LCD       1
 #define USE_KEYPAD    1
 #define USE_LEDS      1        /* health bar + alarm on LD2-LD9: FRC cable CNA -> CNA1 */
