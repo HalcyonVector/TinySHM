@@ -113,9 +113,12 @@ static void i2c_stop(void)
     while ((LPC_I2C1->I2CONSET & I2C_STO) && --t);
 }
 
+static unsigned int mpu_addr = MPU_ADDR;     /* 0x68, or 0x69 if AD0 is high */
+char sensor_diag[17];                           /* why the sensor was not found, for the LCD */
+
 static int mpu_write(unsigned int reg, unsigned int val)
 {
-    int ok = i2c_start() == 0x08 && i2c_send(MPU_ADDR << 1) == 0x18 &&
+    int ok = i2c_start() == 0x08 && i2c_send(mpu_addr << 1) == 0x18 &&
              i2c_send(reg) == 0x28 && i2c_send(val) == 0x28;
     i2c_stop();
     return ok;
@@ -123,9 +126,9 @@ static int mpu_write(unsigned int reg, unsigned int val)
 
 static int mpu_read(unsigned int reg, unsigned char *buf, int n)
 {
-    int i, v, ok = i2c_start() == 0x08 && i2c_send(MPU_ADDR << 1) == 0x18 &&
+    int i, v, ok = i2c_start() == 0x08 && i2c_send(mpu_addr << 1) == 0x18 &&
                    i2c_send(reg) == 0x28 && i2c_start() == 0x10 &&
-                   i2c_send((MPU_ADDR << 1) | 1) == 0x40;
+                   i2c_send((mpu_addr << 1) | 1) == 0x40;
     for (i = 0; ok && i < n; i++) {
         v = i2c_recv(i < n - 1);
         if (v < 0) ok = 0; else buf[i] = (unsigned char)v;
@@ -134,10 +137,43 @@ static int mpu_read(unsigned int reg, unsigned char *buf, int n)
     return ok;
 }
 
+static char hex_digit(int v) { return (char)(v < 10 ? '0' + v : 'A' + v - 10); }
+
+/* First step of the WHO_AM_I read that went wrong, for the LCD:
+   "S" start, "A" address, "R" register, "P" repeated start, "D" data;
+   followed by the I2C status in hex, or "TO" for a timeout. */
+static void probe_diag(char *d)
+{
+    int st;
+    const char *step = "S";
+    st = i2c_start();
+    if (st == 0x08) { step = "A"; st = i2c_send(mpu_addr << 1); }
+    if (st == 0x18) { step = "R"; st = i2c_send(0x75); }
+    if (st == 0x28) { step = "P"; st = i2c_start(); }
+    if (st == 0x10) { step = "D"; st = i2c_send((mpu_addr << 1) | 1); }
+    i2c_stop();
+    d[0] = step[0];
+    d[1] = '=';
+    if (st < 0) { d[2] = 'T'; d[3] = 'O'; }
+    else        { d[2] = hex_digit((st >> 4) & 0xF); d[3] = hex_digit(st & 0xF); }
+    d[4] = 0;
+}
+
 int sensor_init(void)
 {
     unsigned char id;
     unsigned int half = (SystemCoreClock / 4) / (2 * I2C_HZ);   /* PCLK_I2C1 = CCLK/4 */
+    int sda, scl;
+
+    /* Wiring check before I2C starts: with weak internal pull-downs, a pin
+       wired to the GY-521 reads 1 (its 4.7k pull-ups win), a pin wired to
+       nothing reads 0. */
+    LPC_PINCON->PINSEL1 &= ~((3u << 6) | (3u << 8));             /* GPIO */
+    LPC_GPIO0->FIODIR &= ~((1u << 19) | (1u << 20));             /* inputs */
+    LPC_PINCON->PINMODE1 |= (3u << 6) | (3u << 8);               /* pull-down */
+    delay_ms(5);
+    sda = (LPC_GPIO0->FIOPIN >> 19) & 1;
+    scl = (LPC_GPIO0->FIOPIN >> 20) & 1;
 
     LPC_SC->PCONP |= (1 << 19);                      /* I2C1 power */
     LPC_PINCON->PINSEL1 |= (3u << 6) | (3u << 8);    /* P0.19 = SDA1, P0.20 = SCL1 */
@@ -149,7 +185,19 @@ int sensor_init(void)
     LPC_I2C1->I2CONSET = I2C_EN;
 
     delay_ms(100);                                   /* MPU6050 power-up time */
-    if (!mpu_read(0x75, &id, 1)) return -1;          /* WHO_AM_I: 0x68 on a real MPU6050 */
+    if (!mpu_read(0x75, &id, 1)) {                   /* WHO_AM_I: 0x68 on a real MPU6050 */
+        mpu_addr = MPU_ADDR + 1;                     /* try 0x69 (AD0 high) */
+        if (!mpu_read(0x75, &id, 1)) {
+            mpu_addr = MPU_ADDR;
+            /* LCD line 2, e.g. "SDA1 SCL1 A=20" */
+            sensor_diag[0] = 'S'; sensor_diag[1] = 'D'; sensor_diag[2] = 'A';
+            sensor_diag[3] = (char)('0' + sda); sensor_diag[4] = ' ';
+            sensor_diag[5] = 'S'; sensor_diag[6] = 'C'; sensor_diag[7] = 'L';
+            sensor_diag[8] = (char)('0' + scl); sensor_diag[9] = ' ';
+            probe_diag(sensor_diag + 10);
+            return -1;
+        }
+    }
     mpu_write(0x6B, 0x01);                           /* wake up, clock from gyro X PLL */
     delay_ms(10);
     mpu_write(0x1A, 0x03);                           /* low-pass filter 44 Hz (anti-alias for FS = 100) */

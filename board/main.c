@@ -131,9 +131,10 @@ int main(void)
 
     key = sensor_init();
     if (key < 0) {                      /* no answer on I2C: show it and stop */
-        uart_puts("\r\nMPU6050 NOT FOUND. Check SDA/SCL/VCC/GND.\r\n");
-        lcd_line(0, "MPU6050 NOT");
-        lcd_line(1, "CHECK WIRING");
+        uart_puts("\r\nMPU6050 NOT FOUND. Check SDA/SCL/VCC/GND. ");
+        uart_puts(sensor_diag); uart_puts("\r\n");
+        lcd_line(0, "MPU6050 NOT FND");
+        lcd_line(1, sensor_diag);
         while (1);
     }
     uart_puts("\r\nMPU6050 found, WHO_AM_I = "); uart_putint(key); uart_puts(" (104 = genuine)\r\n");
