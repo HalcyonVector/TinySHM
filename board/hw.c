@@ -62,18 +62,22 @@ void uart_putint(long v)
 
 /* ------------------------------------------------------------- sensor */
 /* MPU6050 on P0.19 = SDA, P0.20 = SCL (connector CNC pins 5 and 6).
-   The I2C is done in software ("bit-banged") on these two GPIO pins
-   instead of with the I2C1 peripheral: every step is plain code, so a
-   glitch can't leave the peripheral in a stuck state. A line is driven
-   low by making the pin an output (its output latch is 0) and released
-   by making it an input, so the GY-521's 4.7k pull-ups pull it high.
+   Two ways to talk I2C on these pins, and the board uses whichever one
+   gets an answer at power-up:
+   - software ("bit-banged") I2C on the two GPIO pins: every step is plain
+     code, so nothing can be left in a stuck state;
+   - the LPC1768's own I2C1 peripheral.
    Every wait has a timeout, so bad wiring shows up as "not found"
    instead of a frozen board. */
 #define SDA_BIT  (1u << 19)
 #define SCL_BIT  (1u << 20)
 
+static int use_hw;                              /* 1 = I2C1 peripheral, 0 = software */
 static unsigned int i2c_loops;                  /* busy-loop count for a quarter bit */
 
+/* --- software I2C. A line is driven low by making the pin an output (its
+   output latch is 0) and released by making it an input, so the GY-521's
+   4.7k pull-ups pull it high. */
 static void i2c_delay(void)
 {
     volatile unsigned int i;
@@ -94,7 +98,7 @@ static int scl_high(void)                       /* release SCL, wait if a chip h
     return 1;
 }
 
-static void i2c_start(void)                     /* also works as a repeated start */
+static void sw_start(void)                      /* also works as a repeated start */
 {
     sda_high(); i2c_delay();
     scl_high(); i2c_delay();
@@ -102,14 +106,14 @@ static void i2c_start(void)                     /* also works as a repeated star
     scl_low();  i2c_delay();
 }
 
-static void i2c_stop(void)
+static void sw_stop(void)
 {
     sda_low();  i2c_delay();
     scl_high(); i2c_delay();
     sda_high(); i2c_delay();
 }
 
-static int i2c_send(unsigned int b)             /* 1 = the chip acknowledged */
+static int sw_send(unsigned int b)              /* 1 = the chip acknowledged */
 {
     int i, ack;
     for (i = 7; i >= 0; i--) {
@@ -128,7 +132,7 @@ static int i2c_send(unsigned int b)             /* 1 = the chip acknowledged */
     return ack;
 }
 
-static int i2c_recv(int ack)
+static int sw_recv(int ack)
 {
     int i, b = 0;
     sda_high();
@@ -149,7 +153,7 @@ static int i2c_recv(int ack)
     return b;
 }
 
-static void i2c_recover(void)
+static void sw_recover(void)
 {
     /* If the board was reset in the middle of a read, a chip may still be
        holding SDA low. Nine clock pulses let it finish, then a STOP. */
@@ -159,33 +163,106 @@ static void i2c_recover(void)
         scl_low(); i2c_delay(); i2c_delay();
         scl_high(); i2c_delay(); i2c_delay();
     }
-    i2c_start();
-    i2c_stop();
+    sw_start();
+    sw_stop();
 }
 
-static unsigned int mpu_addr = MPU_ADDR;     /* 0x68, or 0x69 if AD0 is high */
+/* --- I2C1 peripheral (UM10360 chapter 19 state codes) */
+#define I2C_AA   0x04
+#define I2C_SI   0x08
+#define I2C_STO  0x10
+#define I2C_STA  0x20
+#define I2C_EN   0x40
+
+static int hw_wait(void)
+{
+    long t = 100000;
+    while (!(LPC_I2C1->I2CONSET & I2C_SI))
+        if (--t == 0) return -1;
+    return (int)LPC_I2C1->I2STAT;
+}
+
+static int hw_start(void)                       /* 0x08 start, 0x10 repeated start */
+{
+    int st;
+    LPC_I2C1->I2CONSET = I2C_STA;
+    LPC_I2C1->I2CONCLR = I2C_SI;
+    st = hw_wait();
+    LPC_I2C1->I2CONCLR = I2C_STA;
+    return st;
+}
+
+static int hw_send(unsigned int b)              /* 0x18 / 0x28 / 0x40 = acked */
+{
+    LPC_I2C1->I2DAT = b & 0xFF;
+    LPC_I2C1->I2CONCLR = I2C_SI;
+    return hw_wait();
+}
+
+static int hw_recv(int ack)
+{
+    if (ack) LPC_I2C1->I2CONSET = I2C_AA;
+    else     LPC_I2C1->I2CONCLR = I2C_AA;
+    LPC_I2C1->I2CONCLR = I2C_SI;
+    if (hw_wait() < 0) return -1;
+    return (int)(LPC_I2C1->I2DAT & 0xFF);
+}
+
+static void hw_stop(void)
+{
+    long t = 100000;
+    LPC_I2C1->I2CONSET = I2C_STO;
+    LPC_I2C1->I2CONCLR = I2C_SI;
+    while ((LPC_I2C1->I2CONSET & I2C_STO) && --t);
+}
+
+static void hw_init(void)
+{
+    unsigned int half = (SystemCoreClock / 4) / (2 * I2C_HZ);   /* PCLK_I2C1 = CCLK/4 */
+    LPC_SC->PCONP |= (1 << 19);                      /* I2C1 power */
+    LPC_I2C1->I2CONCLR = I2C_AA | I2C_SI | I2C_STA | I2C_EN;
+    LPC_I2C1->I2SCLH = half;
+    LPC_I2C1->I2SCLL = half;
+    LPC_PINCON->PINSEL1 |= (3u << 6) | (3u << 8);    /* P0.19 = SDA1, P0.20 = SCL1 */
+    LPC_I2C1->I2CONSET = I2C_EN;
+}
+
+/* --- MPU6050 register access, through whichever method works */
+static unsigned int mpu_addr = MPU_ADDR;        /* 0x68, or 0x69 if AD0 is high */
 char sensor_diag[17];                           /* why the sensor was not found, for the LCD */
 
 static int mpu_write(unsigned int reg, unsigned int val)
 {
     int ok;
-    i2c_start();
-    ok = i2c_send(mpu_addr << 1) && i2c_send(reg) && i2c_send(val);
-    i2c_stop();
+    if (use_hw) {
+        ok = hw_start() == 0x08 && hw_send(mpu_addr << 1) == 0x18 &&
+             hw_send(reg) == 0x28 && hw_send(val) == 0x28;
+        hw_stop();
+    } else {
+        sw_start();
+        ok = sw_send(mpu_addr << 1) && sw_send(reg) && sw_send(val);
+        sw_stop();
+    }
     return ok;
 }
 
 static int mpu_read(unsigned int reg, unsigned char *buf, int n)
 {
     int i, v, ok;
-    i2c_start();
-    ok = i2c_send(mpu_addr << 1) && i2c_send(reg);
-    if (ok) { i2c_start(); ok = i2c_send((mpu_addr << 1) | 1); }
+    if (use_hw) {
+        ok = hw_start() == 0x08 && hw_send(mpu_addr << 1) == 0x18 &&
+             hw_send(reg) == 0x28 && hw_start() == 0x10 &&
+             hw_send((mpu_addr << 1) | 1) == 0x40;
+    } else {
+        sw_start();
+        ok = sw_send(mpu_addr << 1) && sw_send(reg);
+        if (ok) { sw_start(); ok = sw_send((mpu_addr << 1) | 1); }
+    }
     for (i = 0; ok && i < n; i++) {
-        v = i2c_recv(i < n - 1);
+        v = use_hw ? hw_recv(i < n - 1) : sw_recv(i < n - 1);
         if (v < 0) ok = 0; else buf[i] = (unsigned char)v;
     }
-    i2c_stop();
+    if (use_hw) hw_stop(); else sw_stop();
     return ok;
 }
 
@@ -199,10 +276,23 @@ static int is_mpu_id(int id)
            id == 0x72 || id == 0x73 || id == 0x98 || id == 0x19;
 }
 
+static int find_mpu(void)                       /* tries 0x69, then 0x68; 1 = found */
+{
+    unsigned char id;
+    int k;
+    for (k = 0; k < 6; k++) {
+        mpu_addr = (k & 1) ? MPU_ADDR : MPU_ADDR + 1;
+        if (mpu_read(0x75, &id, 1) && is_mpu_id(id)) return 1;
+        delay_ms(5);
+    }
+    mpu_addr = MPU_ADDR;
+    return 0;
+}
+
 int sensor_init(void)
 {
+    int a, k, n, sda, scl, lo_sda, lo_scl, hw_ok;
     unsigned char id = 0;
-    int a, k, n, sda, scl, found;
 
     i2c_loops = SystemCoreClock / (4 * 4 * I2C_HZ);  /* ~4 cycles per loop, 4 quarters per bit */
     if (i2c_loops == 0) i2c_loops = 1;
@@ -223,41 +313,60 @@ int sensor_init(void)
     LPC_PINCON->PINMODE_OD0 |= SDA_BIT | SCL_BIT;
     LPC_GPIO0->FIOCLR = SDA_BIT | SCL_BIT;
 
+    /* Can the board pull each line low? Both should read 0 here. */
+    sda_low(); delay_ms(1); lo_sda = sda_read(); sda_high();
+    scl_low(); delay_ms(1); lo_scl = (LPC_GPIO0->FIOPIN & SCL_BIT) != 0; scl_high();
+
     delay_ms(100);                                   /* MPU6050 power-up time */
-    i2c_recover();
 
-    /* Look for the sensor at 0x69 first (AD0 tied high), then 0x68. A
-       chip only counts if WHO_AM_I looks like an MPU. */
-    found = 0;
-    for (k = 0; k < 6 && !found; k++) {
-        mpu_addr = (k & 1) ? MPU_ADDR : MPU_ADDR + 1;
-        if (mpu_read(0x75, &id, 1) && is_mpu_id(id)) found = 1;
-        else delay_ms(5);
-    }
+    /* 1. software I2C */
+    use_hw = 0;
+    sw_recover();
+    if (find_mpu()) goto found;
 
-    if (!found) {
-        /* LCD line 2: pin levels, then the address of every chip that
-           answered (for example "S1C1 50 68"), so we can see what is on
-           the bus. "--" = nothing answered. */
-        sensor_diag[0] = 'S'; sensor_diag[1] = (char)('0' + sda);
-        sensor_diag[2] = 'C'; sensor_diag[3] = (char)('0' + scl);
-        n = 4;
-        for (a = 0x08; a < 0x78 && n <= 13; a++) {
-            i2c_start();
-            k = i2c_send(a << 1);
-            i2c_stop();
-            if (k) {
-                sensor_diag[n++] = ' ';
-                sensor_diag[n++] = hex_digit(a >> 4);
-                sensor_diag[n++] = hex_digit(a & 0xF);
-            }
+    /* 2. the I2C1 peripheral */
+    use_hw = 1;
+    hw_init();
+    delay_ms(5);
+    if (find_mpu()) goto found;
+
+    /* Not found. LCD line 2, for example "S1C1 L00 H20 --":
+       S, C = SDA, SCL level with pull-downs (1 = sensor's pull-up seen),
+       L    = SDA, SCL level while the board pulls them low (should be 00),
+       H    = I2C1 status after sending the 0x68 address (18 = answered,
+              20 = no answer, TO = timeout),
+       then every address that answered the software scan ("--" = none). */
+    hw_ok = hw_start();
+    if (hw_ok == 0x08) hw_ok = hw_send(MPU_ADDR << 1);
+    hw_stop();
+    LPC_PINCON->PINSEL1 &= ~((3u << 6) | (3u << 8));             /* back to GPIO */
+    use_hw = 0;
+
+    sensor_diag[0] = 'S'; sensor_diag[1] = (char)('0' + sda);
+    sensor_diag[2] = 'C'; sensor_diag[3] = (char)('0' + scl);
+    sensor_diag[4] = ' ';
+    sensor_diag[5] = 'L'; sensor_diag[6] = (char)('0' + lo_sda); sensor_diag[7] = (char)('0' + lo_scl);
+    sensor_diag[8] = ' ';
+    sensor_diag[9] = 'H';
+    if (hw_ok < 0) { sensor_diag[10] = 'T'; sensor_diag[11] = 'O'; }
+    else { sensor_diag[10] = hex_digit((hw_ok >> 4) & 0xF); sensor_diag[11] = hex_digit(hw_ok & 0xF); }
+    n = 12;
+    for (a = 0x08; a < 0x78 && n <= 13; a++) {
+        sw_start();
+        k = sw_send(a << 1);
+        sw_stop();
+        if (k) {
+            sensor_diag[n++] = ' ';
+            sensor_diag[n++] = hex_digit(a >> 4);
+            sensor_diag[n++] = hex_digit(a & 0xF);
         }
-        if (n == 4) { sensor_diag[n++] = ' '; sensor_diag[n++] = '-'; sensor_diag[n++] = '-'; }
-        sensor_diag[n] = 0;
-        mpu_addr = MPU_ADDR;
-        return -1;
     }
+    if (n == 12) { sensor_diag[n++] = ' '; sensor_diag[n++] = '-'; sensor_diag[n++] = '-'; }
+    sensor_diag[n] = 0;
+    return -1;
 
+found:
+    mpu_read(0x75, &id, 1);
     mpu_write(0x6B, 0x01);                           /* wake up, clock from gyro X PLL */
     delay_ms(10);
     mpu_write(0x1A, 0x03);                           /* low-pass filter 44 Hz (anti-alias for FS = 100) */
