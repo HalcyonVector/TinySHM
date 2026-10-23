@@ -140,30 +140,39 @@ static int mpu_read(unsigned int reg, unsigned char *buf, int n)
 static char hex_digit(int v) { return (char)(v < 10 ? '0' + v : 'A' + v - 10); }
 
 /* First step of the WHO_AM_I read that went wrong, for the LCD:
-   "S" start, "A" address, "R" register, "P" repeated start, "D" data;
-   followed by the I2C status in hex, or "TO" for a timeout. */
-static void probe_diag(char *d)
+   "S" start, "A" address, "R" register, "P" repeated start, "D" read
+   address, "V" WHO_AM_I value; followed by the I2C status in hex (for "V",
+   the value itself), or "TO" for a timeout. */
+static int probe_diag(char *d)                  /* returns WHO_AM_I, or -1 */
 {
-    int st;
+    int st, id = -1;
     const char *step = "S";
     st = i2c_start();
     if (st == 0x08) { step = "A"; st = i2c_send(mpu_addr << 1); }
     if (st == 0x18) { step = "R"; st = i2c_send(0x75); }
     if (st == 0x28) { step = "P"; st = i2c_start(); }
     if (st == 0x10) { step = "D"; st = i2c_send((mpu_addr << 1) | 1); }
+    if (st == 0x40) {                            /* read the byte, NACK it: 0x58 = got it */
+        step = "V";
+        LPC_I2C1->I2CONCLR = I2C_AA;
+        LPC_I2C1->I2CONCLR = I2C_SI;
+        st = i2c_wait();
+        if (st == 0x58) st = id = (int)(LPC_I2C1->I2DAT & 0xFF);   /* show WHO_AM_I itself */
+    }
     i2c_stop();
     d[0] = step[0];
     d[1] = '=';
     if (st < 0) { d[2] = 'T'; d[3] = 'O'; }
     else        { d[2] = hex_digit((st >> 4) & 0xF); d[3] = hex_digit(st & 0xF); }
     d[4] = 0;
+    return id;
 }
 
 int sensor_init(void)
 {
     unsigned char id;
     unsigned int half = (SystemCoreClock / 4) / (2 * I2C_HZ);   /* PCLK_I2C1 = CCLK/4 */
-    int sda, scl;
+    int sda, scl, tries, i;
 
     /* Wiring check before I2C starts: with weak internal pull-downs, a pin
        wired to the GY-521 reads 1 (its 4.7k pull-ups win), a pin wired to
@@ -175,6 +184,19 @@ int sensor_init(void)
     sda = (LPC_GPIO0->FIOPIN >> 19) & 1;
     scl = (LPC_GPIO0->FIOPIN >> 20) & 1;
 
+    /* Bus recovery: if the board was reset in the middle of a read, the
+       sensor may still hold SDA low. Nine clock pulses on SCL let it finish. */
+    LPC_PINCON->PINMODE1 = (LPC_PINCON->PINMODE1 & ~(3u << 8)) | (2u << 8);
+    LPC_PINCON->PINMODE_OD0 |= (1u << 20);
+    LPC_GPIO0->FIOSET = (1u << 20);
+    LPC_GPIO0->FIODIR |= (1u << 20);
+    for (i = 0; i < 18; i++) {
+        if (i & 1) LPC_GPIO0->FIOSET = (1u << 20);
+        else       LPC_GPIO0->FIOCLR = (1u << 20);
+        delay_ms(1);
+    }
+    LPC_GPIO0->FIODIR &= ~(1u << 20);
+
     LPC_SC->PCONP |= (1 << 19);                      /* I2C1 power */
     LPC_PINCON->PINSEL1 |= (3u << 6) | (3u << 8);    /* P0.19 = SDA1, P0.20 = SCL1 */
     LPC_PINCON->PINMODE1 = (LPC_PINCON->PINMODE1 & ~((3u << 6) | (3u << 8))) | (2u << 6) | (2u << 8);
@@ -185,18 +207,24 @@ int sensor_init(void)
     LPC_I2C1->I2CONSET = I2C_EN;
 
     delay_ms(100);                                   /* MPU6050 power-up time */
-    if (!mpu_read(0x75, &id, 1)) {                   /* WHO_AM_I: 0x68 on a real MPU6050 */
-        mpu_addr = MPU_ADDR + 1;                     /* try 0x69 (AD0 high) */
-        if (!mpu_read(0x75, &id, 1)) {
-            mpu_addr = MPU_ADDR;
-            /* LCD line 2, e.g. "SDA1 SCL1 A=20" */
-            sensor_diag[0] = 'S'; sensor_diag[1] = 'D'; sensor_diag[2] = 'A';
-            sensor_diag[3] = (char)('0' + sda); sensor_diag[4] = ' ';
-            sensor_diag[5] = 'S'; sensor_diag[6] = 'C'; sensor_diag[7] = 'L';
-            sensor_diag[8] = (char)('0' + scl); sensor_diag[9] = ' ';
-            probe_diag(sensor_diag + 10);
-            return -1;
-        }
+    /* WHO_AM_I: 0x68 on a real MPU6050. The first transfer after a reset
+       can fail (the sensor may still be half-way through the last read),
+       so try a few times at 0x68, then at 0x69 (AD0 high). */
+    for (tries = 0; tries < 10; tries++) {
+        mpu_addr = (tries < 5) ? MPU_ADDR : MPU_ADDR + 1;
+        if (mpu_read(0x75, &id, 1)) break;
+        delay_ms(10);
+    }
+    if (tries == 10) {
+        mpu_addr = MPU_ADDR;
+        /* LCD line 2, e.g. "SDA1 SCL1 A=20" */
+        sensor_diag[0] = 'S'; sensor_diag[1] = 'D'; sensor_diag[2] = 'A';
+        sensor_diag[3] = (char)('0' + sda); sensor_diag[4] = ' ';
+        sensor_diag[5] = 'S'; sensor_diag[6] = 'C'; sensor_diag[7] = 'L';
+        sensor_diag[8] = (char)('0' + scl); sensor_diag[9] = ' ';
+        i = probe_diag(sensor_diag + 10);
+        if (i < 0) return -1;
+        id = (unsigned char)i;                       /* the step-by-step read worked */
     }
     mpu_write(0x6B, 0x01);                           /* wake up, clock from gyro X PLL */
     delay_ms(10);
