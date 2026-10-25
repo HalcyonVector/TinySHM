@@ -8,6 +8,9 @@ Usage (in the lab):
   python pc/logger.py --port COM5 --label loose_support --step 1 --count 12
 Practice without a board:
   python pc/logger.py --sim --label loose_support --step 2 --count 3
+From a terminal capture (lab PC without Python: save the serial output of
+PuTTY / Tera Term to a text file, one file per condition, copy it over):
+  python pc/logger.py --file healthy.txt --label healthy --step 0
 
 Saves every flick to data/<set>/<label>__<step>__<id>.txt (set = real, or
 sim_session with --sim) and appends one row per flick to
@@ -28,6 +31,31 @@ def next_id(folder, label, step):
     return max(ids, default=-1) + 1
 
 
+def parse_lines(lines):
+    """Turn board output lines into (readings, RES, BENCH) per flick."""
+    board_res = board_bench = None
+    for line in lines:
+        line = line.strip()
+        if line.startswith("RES,"):
+            board_res = line[4:]
+        elif line.startswith("BENCH,"):
+            board_bench = line[6:]
+        elif line.startswith("RAW,"):
+            vals = [int(v) for v in line[4:].split(",") if v.strip().isdigit()]
+            if len(vals) == N:
+                yield np.array(vals), board_res, board_bench
+                board_res = board_bench = None
+            else:
+                print(f"  ignored a broken line ({len(vals)} values)")
+        elif line:
+            print("  board:", line)
+
+
+def flicks_from_file(path):
+    with open(path, encoding="utf-8", errors="ignore") as fh:
+        yield from parse_lines(fh)
+
+
 def flicks_from_serial(port, baud):
     import serial                                  # pip install pyserial
     # The lab board's reset/ISP pins are wired to DTR/RTS for Flash Magic.
@@ -40,22 +68,7 @@ def flicks_from_serial(port, baud):
     with ser:
         print(f"listening on {port} at {baud} baud. Close Flash Magic first. "
               "If nothing arrives, press the board's reset switch (SW1).")
-        board_res = board_bench = None
-        while True:
-            line = ser.readline().decode(errors="ignore").strip()
-            if line.startswith("RES,"):
-                board_res = line[4:]
-            elif line.startswith("BENCH,"):
-                board_bench = line[6:]
-            elif line.startswith("RAW,"):
-                vals = [int(v) for v in line[4:].split(",") if v]
-                if len(vals) == N:
-                    yield np.array(vals), board_res, board_bench
-                    board_res = board_bench = None
-                else:
-                    print(f"  ignored a broken line ({len(vals)} values)")
-            elif line:
-                print("  board:", line)
+        yield from parse_lines(ser.readline().decode(errors="ignore") for _ in iter(int, 1))
 
 
 def flicks_from_sim(label, step):
@@ -74,6 +87,7 @@ def main():
     ap.add_argument("--step", type=int, default=0, help="severity step, see config.DAMAGE_LEVEL")
     ap.add_argument("--count", type=int, default=25)
     ap.add_argument("--sim", action="store_true", help="fake flicks, no board needed")
+    ap.add_argument("--file", help="import a saved terminal capture instead of reading the port")
     ap.add_argument("--model", default=None, help="model set for live answers (default: real if trained, else sim)")
     args = ap.parse_args()
 
@@ -90,7 +104,13 @@ def main():
         predictor = Predictor(model)
         print(f"live answers from the '{model}' model")
 
-    src = flicks_from_sim(args.label, args.step) if args.sim else flicks_from_serial(args.port, args.baud)
+    if args.sim:
+        src = flicks_from_sim(args.label, args.step)
+    elif args.file:
+        src = flicks_from_file(args.file)
+        args.count = 10 ** 9                       # take every flick in the file
+    else:
+        src = flicks_from_serial(args.port, args.baud)
     new_log = not log.exists()
     with open(log, "a", newline="", encoding="utf-8") as fh:
         cols = (["time", "file", "label", "step"] + FEATURES +
@@ -111,7 +131,7 @@ def main():
             row["board_bench"] = board_bench or ""
             wr.writerow(row)
             fh.flush()
-            msg = f"[{k + 1}/{args.count}] saved {path.name}"
+            msg = f"[{k + 1}{'' if args.file else '/' + str(args.count)}] saved {path.name}"
             if predictor:
                 msg += (f"  f1={row['f1_hz']:.2f} Hz  -> {row['nn'].upper()} "
                         f"health {row['health']:.0f}%" + ("  UNKNOWN!" if row["unknown"] else ""))

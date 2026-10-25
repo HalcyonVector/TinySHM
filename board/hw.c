@@ -65,7 +65,7 @@ void uart_putint(long v)
    finds it at power-up:
    - CNC pin 5 = P0.19 (SDA1), pin 6 = P0.20 (SCL1), with the I2C1 peripheral
    - CNA pin 7 = P0.10 (SDA2), pin 8 = P0.11 (SCL2), with the I2C2 peripheral
-     (then the LED cable is not used, the sensor takes its socket)
+     (then the LED cable is unplugged: the sensor takes its socket)
    On each connector it first tries the I2C peripheral, then software
    ("bit-banged") I2C on the same two pins. Every wait has a timeout, so
    bad wiring shows up as "not found" instead of a frozen board. */
@@ -77,7 +77,7 @@ static LPC_I2C_TypeDef *i2c;                    /* LPC_I2C1 or LPC_I2C2 */
 static unsigned int sda_bit, scl_bit;           /* GPIO0 bits of the two pins */
 static int use_hw;                              /* 1 = I2C peripheral, 0 = software */
 static unsigned int i2c_loops;                  /* busy-loop count for a quarter bit */
-unsigned int led_mask = 0xFF;                   /* LEDs still free (CNA used by the sensor: 6) */
+unsigned int led_mask = 0xFF;                   /* LED pins still driven (sensor on CNA: P0.10, P0.11 are not) */
 
 /* --- software I2C. A line is driven low by making the pin an output (its
    output latch is 0) and released by making it an input, so the GY-521's
