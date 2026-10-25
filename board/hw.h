@@ -8,7 +8,9 @@ void uart_putint(long v);
 
 /* Sampling: TIMER0 interrupt reads the sensor FS times a second. */
 int  sensor_init(void);           /* MPU6050 WHO_AM_I value, or -1 = not found */
-extern char sensor_diag[];        /* after -1: wiring and bus test results, e.g. "S1C1 A20 A20 --" */
+extern char sensor_diag[];        /* after -1: first try on each connector, e.g. "CNC A20 CNA A20" */
+extern const char *sensor_where;  /* "CNC" or "CNA": where the sensor was found */
+int  sensor_z(void);              /* one Z reading in milli-g, for the start-up check */
 void sampler_init(void);
 void sampler_arm(void);           /* wait for the next flick */
 int  sampler_done(void);          /* 1 when N samples are recorded */

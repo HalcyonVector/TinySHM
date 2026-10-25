@@ -137,7 +137,14 @@ int main(void)
         lcd_line(1, sensor_diag);
         while (1);
     }
-    uart_puts("\r\nMPU6050 found, WHO_AM_I = "); uart_putint(key); uart_puts(" (104 = genuine)\r\n");
+    uart_puts("\r\nMPU6050 found on "); uart_puts(sensor_where);
+    uart_puts(", WHO_AM_I = "); uart_putint(key); uart_puts(" (104 = genuine)\r\n");
+    {                                   /* show it worked: connector and a live Z reading */
+        int z = sensor_z();
+        ln_start(); ln_str("MPU OK on "); ln_str(sensor_where); lcd_line(0, line);
+        ln_start(); ln_str("Z = "); ln_int(z, 1); ln_str(" mg"); lcd_line(1, line);
+        delay_ms(2000);
+    }
     sampler_init();
 
     uart_puts("Damage detector ready. Flick the ruler.\r\n");
