@@ -238,7 +238,12 @@ static void pins_select(int p, int peripheral)
         LPC_PINCON->PINSEL0 &= ~((3u << 20) | (3u << 22));
         if (peripheral) LPC_PINCON->PINSEL0 |= (2u << 20) | (2u << 22);  /* SDA2, SCL2 */
     }
-    LPC_PINCON->PINMODE_OD0 |= sda_bit | scl_bit;
+    if (peripheral) LPC_PINCON->PINMODE_OD0 |= sda_bit | scl_bit;
+    else {                                       /* software I2C: pins only ever drive low (latch 0) */
+        LPC_PINCON->PINMODE_OD0 &= ~(sda_bit | scl_bit);
+        if (p == PORT_CNC) LPC_PINCON->PINMODE1 &= ~((3u << 6) | (3u << 8));     /* internal pull-ups */
+        else               LPC_PINCON->PINMODE0 &= ~((3u << 20) | (3u << 22));
+    }
     LPC_GPIO0->FIOCLR = sda_bit | scl_bit;
     LPC_GPIO0->FIODIR &= ~(sda_bit | scl_bit);
     if (peripheral) {
@@ -330,18 +335,22 @@ static int probe_port(int p, char *d)
     int k, v;
     unsigned char id;
 
-    pins_select(p, 1);
+    pins_select(p, USE_HW_I2C);
     delay_ms(5);
+#if USE_HW_I2C
     for (k = 0; k < 10; k++) {
         mpu_addr = (k & 1) ? MPU_ADDR + 1 : MPU_ADDR;
         v = hw_try(mpu_addr, k == 0 ? d : d + 4);
         if (v >= 0) return v;                    /* a chip answered WHO_AM_I */
         delay_ms(10);
     }
+#else
+    d[0] = 'S'; d[1] = 'W'; d[2] = ' ';          /* peripheral skipped: software I2C only */
+#endif
 
     pins_select(p, 0);
     sw_recover();
-    for (k = 0; k < 6; k++) {
+    for (k = 0; k < 20; k++) {
         mpu_addr = (k & 1) ? MPU_ADDR + 1 : MPU_ADDR;
         if (mpu_read(0x75, &id, 1)) return id;
         delay_ms(5);
