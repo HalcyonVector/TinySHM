@@ -352,7 +352,7 @@ static int probe_port(int p, char *d)
 
 int sensor_init(void)
 {
-    int v;
+    int v, pu_sda, pu_scl;
     char cnc[8], cna[8];
 
     i2c_loops = SystemCoreClock / (4 * 4 * I2C_HZ);  /* ~4 cycles per loop, 4 quarters per bit */
@@ -368,19 +368,31 @@ int sensor_init(void)
     v = probe_port(PORT_CNA, cna);
     if (v >= 0) { sensor_where = "CNA"; goto found; }
 
-    /* Not found. LCD line 2, for example "CNC A20 CNA A20":
-       the first peripheral try on each connector (see hw_try). */
+    /* Not found. */
     led_mask = 0xFF;
+    /* Wire check on CNC: turn on the LPC's weak pull-downs. The GY-521's
+       4.7k pull-ups win only if SDA/SCL really reach the module, so a 1
+       here means that wire is connected, a 0 means it is not. */
+    pins_select(PORT_CNC, 0);
+    LPC_PINCON->PINMODE1 |= (3u << 6) | (3u << 8);
+    delay_ms(5);
+    pu_sda = (LPC_GPIO0->FIOPIN >> 19) & 1;
+    pu_scl = (LPC_GPIO0->FIOPIN >> 20) & 1;
+    LPC_PINCON->PINMODE1 = (LPC_PINCON->PINMODE1 & ~((3u << 6) | (3u << 8))) | (2u << 6) | (2u << 8);
     pins_select(PORT_CNA, 0);                        /* CNA pins back to plain GPIO */
     LPC_PINCON->PINMODE_OD0 &= ~((1u << 10) | (1u << 11));
 #if USE_LEDS
     LPC_GPIO0->FIODIR |= (0xFFu << 4);               /* and back to the LEDs */
 #endif
-    sensor_diag[0] = 'C'; sensor_diag[1] = 'N'; sensor_diag[2] = 'C'; sensor_diag[3] = ' ';
-    sensor_diag[4] = cnc[0]; sensor_diag[5] = cnc[1]; sensor_diag[6] = cnc[2];
-    sensor_diag[7] = ' ';
-    sensor_diag[8] = 'C'; sensor_diag[9] = 'N'; sensor_diag[10] = 'A'; sensor_diag[11] = ' ';
-    sensor_diag[12] = cna[0]; sensor_diag[13] = cna[1]; sensor_diag[14] = cna[2];
+    /* LCD line 2, for example "C:STO A:STO P11": first peripheral try on
+       CNC and CNA (see hw_try), then the CNC wire check (SDA, SCL). */
+    sensor_diag[0] = 'C'; sensor_diag[1] = ':';
+    sensor_diag[2] = cnc[0]; sensor_diag[3] = cnc[1]; sensor_diag[4] = cnc[2];
+    sensor_diag[5] = ' ';
+    sensor_diag[6] = 'A'; sensor_diag[7] = ':';
+    sensor_diag[8] = cna[0]; sensor_diag[9] = cna[1]; sensor_diag[10] = cna[2];
+    sensor_diag[11] = ' '; sensor_diag[12] = 'P';
+    sensor_diag[13] = (char)('0' + pu_sda); sensor_diag[14] = (char)('0' + pu_scl);
     sensor_diag[15] = 0;
     return -1;
 
