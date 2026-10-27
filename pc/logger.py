@@ -64,7 +64,14 @@ def flicks_from_serial(port, baud):
     ser.port, ser.baudrate, ser.timeout = port, baud, 1
     ser.dtr = False
     ser.rts = False
-    ser.open()
+    try:
+        ser.open()
+    except serial.SerialException as e:
+        # Some CH340 USB-serial drivers reject the DTR/RTS settings
+        # ("A device attached to the system is not functioning"). Retry with
+        # the driver's defaults; press reset on the board if it stops.
+        print(f"  port setup refused ({e}); retrying with default settings")
+        ser = serial.Serial(port, baud, timeout=1)
     with ser:
         print(f"listening on {port} at {baud} baud. Close Flash Magic first. "
               "If nothing arrives, press the board's reset switch (SW1).")
