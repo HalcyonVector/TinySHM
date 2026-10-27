@@ -5,8 +5,10 @@ Everything here is done by hand. No drilling, cutting or soldering.
 ## What you need
 
 - 2 steel rulers, 30 cm, same brand (plus 1 spare)
-- 1 C-clamp (G-clamp), 3 or 4 inch. No clamp yet? Use 4 heavy books (see the
-  note in Part 1)
+- 1 screw C-clamp (G-clamp), 3 or 4 inch: a metal "C" with a threaded screw
+  and a T-handle that you turn by hand. No nails, no hammer, no holes: it just
+  squeezes the ruler onto the table edge. A screw F-clamp (bar clamp) does the
+  same job. No clamp at all? Use 4 heavy books (see the note in Part 1)
 - 3 binder clips, 25 mm or 32 mm
 - Thin double-sided tape and insulation tape
 - An MPU6050 sensor module (GY-521 board) with headers **already soldered**
@@ -24,7 +26,9 @@ tests, because the board learns what this exact beam sounds like.
    the edge (20 cm stays on the table). Put the C-clamp over the part still on
    the table, about 2 cm from the edge, and tighten it firmly by hand. Draw a
    pen line on the table along the ruler and at the clamp, so you can put
-   everything back in the same place.
+   everything back in the same place. Put a folded piece of cardboard or
+   cloth between the clamp's lower jaw and the underside of the table so it
+   can't mark the table.
 
    **No C-clamp yet?** Stack 4 heavy textbooks on the part of ruler A that is
    on the table, with the front of the stack exactly flush with the table

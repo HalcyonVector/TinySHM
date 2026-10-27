@@ -21,7 +21,7 @@ Prices are approximate and include GST.
 | Item | Qty | Approx. price | Used for |
 |---|---|---|---|
 | 30 cm steel ruler, all the same brand | 3 | ₹120 (₹40 each) | Two make the beam, one spare |
-| C-clamp (G-clamp), 3 or 4 inch | 1 | ₹150 to ₹250 | Clamps ruler A to the table. Still to buy: until then, 4 heavy books stacked flush with the table edge do the same job |
+| Screw C-clamp (G-clamp), 3 or 4 inch | 1 | ₹150 to ₹250 | Clamps ruler A to the table edge by hand: turn the T-handle, no nails or tools, no marks on the table. Ask a hardware shop for a "G clamp" or "C clamp with screw". A screw F-clamp (bar clamp, about ₹250 to ₹400) works the same. Avoid trigger-type quick-grip clamps: they can't be loosened by a quarter turn for the loose-support test. Books are only the last resort |
 | Binder clips, 25 mm or 32 mm | 1 small pack (6 or more) | ₹40 | Join the two rulers (3 clips), spares |
 | Thin double-sided tape (not foam tape) | 1 roll | ₹40 | Sticks the sensor to the ruler |
 | Insulation tape | 1 roll | ₹20 | Holds the sensor firmly, tapes the wires along the ruler |
