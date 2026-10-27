@@ -6,6 +6,9 @@ The board sends one line per flick:  RAW,<1024 raw readings>
 Usage (in the lab):
   python pc/logger.py --port COM5 --label healthy --step 0 --count 25
   python pc/logger.py --port COM5 --label loose_support --step 1 --count 12
+All conditions in one go, with the port opened only once (it walks you
+through the table in BUILD_GUIDE Part 6 and skips flicks already recorded):
+  python pc/logger.py --port COM5 --plan
 Practice without a board:
   python pc/logger.py --sim --label loose_support --step 2 --count 3
 From a terminal capture (lab PC without Python: save the serial output of
@@ -56,7 +59,19 @@ def flicks_from_file(path):
         yield from parse_lines(fh)
 
 
-def flicks_from_serial(port, baud):
+# BUILD_GUIDE Part 6: (label, step, flicks wanted, what to do by hand)
+PLAN = [
+    ("healthy", 0, 25, "HEALTHY: clamp tight, all 3 clips on, no coin"),
+    ("added_mass", 1, 25, "COIN: tape a coin on ruler B next to the sensor"),
+    ("loose_joint", 1, 15, "LOOSE JOINT 1: remove the coin, remove the MIDDLE clip"),
+    ("loose_joint", 2, 12, "LOOSE JOINT 2: also remove one END clip (1 clip left)"),
+    ("loose_support", 1, 12, "LOOSE SUPPORT 1: put all 3 clips back, loosen the clamp 1/4 turn"),
+    ("loose_support", 2, 12, "LOOSE SUPPORT 2: loosen the clamp to 1/2 turn"),
+    ("loose_support", 3, 10, "LOOSE SUPPORT 3: loosen to 3/4 turn (beam still held)"),
+]
+
+
+def open_serial(port, baud):
     import serial                                  # pip install pyserial
     # The lab board's reset/ISP pins are wired to DTR/RTS for Flash Magic.
     # Keep both released so opening the port does not hold the board in reset.
@@ -72,10 +87,18 @@ def flicks_from_serial(port, baud):
         # the driver's defaults; press reset on the board if it stops.
         print(f"  port setup refused ({e}); retrying with default settings")
         ser = serial.Serial(port, baud, timeout=1)
-    with ser:
-        print(f"listening on {port} at {baud} baud. Close Flash Magic first. "
-              "If nothing arrives, press the board's reset switch (SW1).")
-        yield from parse_lines(ser.readline().decode(errors="ignore") for _ in iter(int, 1))
+    print(f"listening on {port} at {baud} baud. Close Flash Magic first. "
+          "If nothing arrives, press the board's reset switch.")
+    return ser
+
+
+def flicks_from_port(ser):
+    yield from parse_lines(ser.readline().decode(errors="ignore") for _ in iter(int, 1))
+
+
+def flicks_from_serial(port, baud):
+    with open_serial(port, baud) as ser:
+        yield from flicks_from_port(ser)
 
 
 def flicks_from_sim(label, step):
@@ -90,7 +113,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", help="e.g. COM5 on Windows, /dev/ttyUSB0 on Linux")
     ap.add_argument("--baud", type=int, default=19200)
-    ap.add_argument("--label", required=True, choices=LABELS)
+    ap.add_argument("--label", choices=LABELS)
+    ap.add_argument("--plan", action="store_true",
+                    help="record every condition of BUILD_GUIDE Part 6 in one session")
     ap.add_argument("--step", type=int, default=0, help="severity step, see config.DAMAGE_LEVEL")
     ap.add_argument("--count", type=int, default=25)
     ap.add_argument("--sim", action="store_true", help="fake flicks, no board needed")
@@ -111,6 +136,11 @@ def main():
         predictor = Predictor(model)
         print(f"live answers from the '{model}' model")
 
+    if args.plan:
+        run_plan(args, folder, log, predictor)
+        return
+    if not args.label:
+        ap.error("--label is required (or use --plan)")
     if args.sim:
         src = flicks_from_sim(args.label, args.step)
     elif args.file:
@@ -118,6 +148,11 @@ def main():
         args.count = 10 ** 9                       # take every flick in the file
     else:
         src = flicks_from_serial(args.port, args.baud)
+    record(src, args.label, args.step, args.count, folder, log, predictor,
+           show_total=not args.file)
+
+
+def record(src, label, step, count, folder, log, predictor, show_total=True):
     new_log = not log.exists()
     with open(log, "a", newline="", encoding="utf-8") as fh:
         cols = (["time", "file", "label", "step"] + FEATURES +
@@ -127,25 +162,54 @@ def main():
         if new_log:
             wr.writeheader()
         for k, (adc, board_res, board_bench) in enumerate(src):
-            i = next_id(folder, args.label, args.step)
-            path = folder / f"{args.label}__{args.step}__{i:03d}.txt"
+            i = next_id(folder, label, step)
+            path = folder / f"{label}__{step}__{i:03d}.txt"
             np.savetxt(path, adc, fmt="%d")
             row = {"time": datetime.now().isoformat(timespec="seconds"),
-                   "file": path.name, "label": args.label, "step": args.step}
+                   "file": path.name, "label": label, "step": step}
             if predictor:
                 row.update(predictor(adc))
             row["board_res"] = board_res or ""
             row["board_bench"] = board_bench or ""
             wr.writerow(row)
             fh.flush()
-            msg = f"[{k + 1}{'' if args.file else '/' + str(args.count)}] saved {path.name}"
+            msg = f"[{k + 1}{'/' + str(count) if show_total else ''}] saved {path.name}"
             if predictor:
                 msg += (f"  f1={row['f1_hz']:.2f} Hz  -> {row['nn'].upper()} "
                         f"health {row['health']:.0f}%" + ("  UNKNOWN!" if row["unknown"] else ""))
             print(msg)
-            if k + 1 >= args.count:
+            if k + 1 >= count:
                 break
 
+
+def run_plan(args, folder, log, predictor):
+    """Walk through every condition with the port open the whole time."""
+    ser = None if args.sim else open_serial(args.port, args.baud)
+    try:
+        for label, step, want, what in PLAN:
+            have = next_id(folder, label, step)
+            left = want - have
+            if left <= 0:
+                print(f"\n{label} step {step}: already have {have}, skipping")
+                continue
+            print(f"\n=== {what}")
+            print(f"    {left} flicks to record ({have} already saved).")
+            ans = input("    Set it up, wait until the LCD shows 'Flick the ruler' or a result,\n"
+                        "    then press Enter (s = skip, q = quit): ").strip().lower()
+            if ans == "q":
+                break
+            if ans == "s":
+                continue
+            if ser is not None:
+                ser.reset_input_buffer()           # drop anything the setup itself triggered
+                src = flicks_from_port(ser)
+            else:
+                src = flicks_from_sim(label, step)
+            record(src, label, step, left, folder, log, predictor)
+        print("\nDone. Now: git add data/real data/real_log.csv, commit, push.")
+    finally:
+        if ser is not None:
+            ser.close()
 
 if __name__ == "__main__":
     main()
