@@ -30,7 +30,10 @@ tests, because the board learns what this exact beam sounds like.
    cloth between the clamp's lower (fixed) jaw and the underside of the table so it
    can't mark the table. Fit it with the T-handle on top: the screw's round
    foot presses ruler A down, the fixed jaw sits under the table, so the
-   quarter turns for the loose-support test are easy to see. A big clamp (even 10 inch) is fine: its frame just
+   quarter turns for the loose-support test are easy to see. Turn the clamp
+   about 45 degrees (diagonal) and press ruler A 3 to 4 cm in from the edge:
+   pointing straight out, the back of the C would sit right in front of the
+   beam and block it. Diagonal, it hangs off the edge beside the ruler. A big clamp (even 10 inch) is fine: its frame just
    hangs below and behind the table edge. Only ruler A is clamped; ruler B
    joins A out in the air past the edge (step 2), never under the clamp.
 
