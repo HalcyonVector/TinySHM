@@ -27,8 +27,10 @@ tests, because the board learns what this exact beam sounds like.
    the table, about 2 cm from the edge, and tighten it firmly by hand. Draw a
    pen line on the table along the ruler and at the clamp, so you can put
    everything back in the same place. Put a folded piece of cardboard or
-   cloth between the clamp's lower jaw and the underside of the table so it
-   can't mark the table. A big clamp (even 10 inch) is fine: its frame just
+   cloth between the clamp's lower (fixed) jaw and the underside of the table so it
+   can't mark the table. Fit it with the T-handle on top: the screw's round
+   foot presses ruler A down, the fixed jaw sits under the table, so the
+   quarter turns for the loose-support test are easy to see. A big clamp (even 10 inch) is fine: its frame just
    hangs below and behind the table edge. Only ruler A is clamped; ruler B
    joins A out in the air past the edge (step 2), never under the clamp.
 
