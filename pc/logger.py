@@ -86,10 +86,47 @@ def open_serial(port, baud):
         # ("A device attached to the system is not functioning"). Retry with
         # the driver's defaults; press reset on the board if it stops.
         print(f"  port setup refused ({e}); retrying with default settings")
-        ser = serial.Serial(port, baud, timeout=1)
+        try:
+            ser = serial.Serial(port, baud, timeout=1)
+        except serial.SerialException as e2:
+            print(f"  refused again ({e2}); setting the port up with Windows 'mode'")
+            ser = RawPort(port, baud)
     print(f"listening on {port} at {baud} baud. Close Flash Magic first. "
           "If nothing arrives, press the board's reset switch.")
     return ser
+
+
+class RawPort:
+    """Last resort for CH340 drivers that reject pyserial's settings: let
+    Windows' own 'mode' command configure the port, then read it as a file."""
+
+    def __init__(self, port, baud):
+        import subprocess
+        out = subprocess.run(["mode", port, f"BAUD={baud}", "PARITY=n", "DATA=8", "STOP=1",
+                              "dtr=off", "rts=off"], shell=True, capture_output=True, text=True)
+        print("  " + " ".join((out.stdout + out.stderr).split())[:200])
+        self.fh = open("\\\\.\\" + port, "rb", buffering=0)
+
+    def readline(self):
+        line = bytearray()
+        while not line.endswith(b"\n"):
+            b = self.fh.read(1)
+            if not b:
+                break
+            line += b
+        return bytes(line)
+
+    def reset_input_buffer(self):
+        pass
+
+    def close(self):
+        self.fh.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
 
 
 def flicks_from_port(ser):
