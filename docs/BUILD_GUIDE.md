@@ -28,7 +28,9 @@ tests, because the board learns what this exact beam sounds like.
    pen line on the table along the ruler and at the clamp, so you can put
    everything back in the same place. Put a folded piece of cardboard or
    cloth between the clamp's lower jaw and the underside of the table so it
-   can't mark the table.
+   can't mark the table. A big clamp (even 10 inch) is fine: its frame just
+   hangs below and behind the table edge. Only ruler A is clamped; ruler B
+   joins A out in the air past the edge (step 2), never under the clamp.
 
    **No C-clamp yet?** Stack 4 heavy textbooks on the part of ruler A that is
    on the table, with the front of the stack exactly flush with the table
