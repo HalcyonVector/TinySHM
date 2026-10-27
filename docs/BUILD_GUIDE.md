@@ -238,7 +238,7 @@ python pc/llm_report.py real
 | LCD blank | Turn POT3. Check the CND to CNAD cable and the JP16 and JP5 jumpers |
 | MPU6050 NOT FOUND | Swap SDA and SCL, check VCC and GND, press reset |
 | Board does nothing after flashing | Close Flash Magic and press reset (it can hold the board in reset) |
-| Logger shows nothing | Close Flash Magic, check the COM port number, baud 115200 |
+| Logger shows nothing | Close Flash Magic, check the COM port number, baud 19200 |
 | Flick doesn't start a recording | Flick a bit harder. The trigger needs a 0.3 g jump |
 | Readings all the same number | The sensor is loose or a wire came off. Check the tape and wires |
 | Results jump around a lot | Flick the same way every time, and check the clamp and clips haven't moved |

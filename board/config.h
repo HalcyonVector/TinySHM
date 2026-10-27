@@ -27,7 +27,7 @@
 #define USE_KEYPAD    1
 #define USE_LEDS      1        /* health bar + alarm on LD2-LD9: FRC cable CNA -> CNA1 */
 #define USE_BENCH     1        /* send a BENCH line comparing the 3 frequency methods */
-#define BAUD          115200
+#define BAUD          19200    /* CH340 USB-serial cables often refuse more on Windows */
 
 #define TRIGGER_G     0.30f    /* start recording when the signal jumps this much */
 #define HOLD_S        2        /* ignore the beam for this long after a flick */

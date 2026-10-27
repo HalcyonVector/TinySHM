@@ -35,7 +35,7 @@ steps are in [docs/BUILD_GUIDE.md](docs/BUILD_GUIDE.md).
 |---|---|
 | LCD | FRC cable CND -> CNAD, short JP16 and JP5, POT3 = contrast (Lab 9) |
 | Keypad | FRC cable CNB -> CNB3, short JP4 (1,2) (Lab 9) |
-| PC link | DB9 cross cable to CN9, same as Flash Magic, 115200 baud |
+| PC link | DB9 cross cable to CN9, same as Flash Magic, 19200 baud |
 | LEDs | FRC cable CNA -> CNA1 (Lab 6). LD2 to LD9 = health bar, all flash = UNSAFE |
 | MPU6050 SDA | P0.19 (I2C1 SDA), CNC middle pair, pin 5 |
 | MPU6050 SCL | P0.20 (I2C1 SCL), CNC middle pair, pin 6 |
@@ -69,7 +69,7 @@ The MPU6050 is set to +-4 g with its built-in 44 Hz filter.
 **Keypad keys:** `0` normal mode · `A` teach a new condition (5 flicks) · `C` self-calibrate the healthy baseline (10 flicks) · `F` switch the LCD between the answer and the raw numbers.
 
 ## Lab day
-1. Wire the sensor and flash the board code. It sends `RES,...` and `RAW,...` once per flick over UART at 115200 baud.
+1. Wire the sensor and flash the board code. It sends `RES,...` and `RAW,...` once per flick over UART at 19200 baud.
 2. Record the flicks. Change `COM5` to your port, which you can find in Device Manager under Ports.
    ```
    python pc/logger.py --port COM5 --label healthy     --step 0 --count 25

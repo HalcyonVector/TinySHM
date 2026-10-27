@@ -74,7 +74,7 @@ copy the `data` folder back to your laptop on the pen drive.
 **B. Lab PC has no Python (or pip is blocked).** Capture the board's output
 with a terminal program and convert it on your laptop:
 1. On the lab PC open PuTTY or Tera Term: Serial, the board's COM port,
-   115200 baud. Turn on logging to a file (PuTTY: Session > Logging >
+   19200 baud. Turn on logging to a file (PuTTY: Session > Logging >
    "All session output"; Tera Term: File > Log).
 2. Use **one log file per condition**, named like the table in Part 6,
    for example `healthy_0.txt`, `loose_support_1.txt`. Flick the right number

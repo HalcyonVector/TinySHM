@@ -89,7 +89,7 @@ def flicks_from_sim(label, step):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", help="e.g. COM5 on Windows, /dev/ttyUSB0 on Linux")
-    ap.add_argument("--baud", type=int, default=115200)
+    ap.add_argument("--baud", type=int, default=19200)
     ap.add_argument("--label", required=True, choices=LABELS)
     ap.add_argument("--step", type=int, default=0, help="severity step, see config.DAMAGE_LEVEL")
     ap.add_argument("--count", type=int, default=25)
