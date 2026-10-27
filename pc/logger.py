@@ -59,15 +59,15 @@ def flicks_from_file(path):
         yield from parse_lines(fh)
 
 
-# BUILD_GUIDE Part 6: (label, step, flicks wanted, what to do by hand)
+# BUILD_GUIDE Part 6, counts cut to fit one lab slot: (label, step, flicks wanted, what to do by hand)
 PLAN = [
     ("healthy", 0, 25, "HEALTHY: clamp tight, all 3 clips on, no coin"),
-    ("added_mass", 1, 25, "COIN: tape a coin on ruler B next to the sensor"),
-    ("loose_joint", 1, 15, "LOOSE JOINT 1: remove the coin, remove the MIDDLE clip"),
-    ("loose_joint", 2, 12, "LOOSE JOINT 2: also remove one END clip (1 clip left)"),
-    ("loose_support", 1, 12, "LOOSE SUPPORT 1: put all 3 clips back, loosen the clamp 1/4 turn"),
-    ("loose_support", 2, 12, "LOOSE SUPPORT 2: loosen the clamp to 1/2 turn"),
-    ("loose_support", 3, 10, "LOOSE SUPPORT 3: loosen to 3/4 turn (beam still held)"),
+    ("added_mass", 1, 12, "COIN: tape a coin on ruler B next to the sensor"),
+    ("loose_joint", 1, 10, "LOOSE JOINT 1: remove the coin, remove the MIDDLE clip"),
+    ("loose_joint", 2, 8, "LOOSE JOINT 2: also remove one END clip (1 clip left)"),
+    ("loose_support", 1, 8, "LOOSE SUPPORT 1: put all 3 clips back, loosen the clamp 1/4 turn"),
+    ("loose_support", 2, 8, "LOOSE SUPPORT 2: loosen the clamp to 1/2 turn"),
+    ("loose_support", 3, 8, "LOOSE SUPPORT 3: loosen to 3/4 turn (beam still held)"),
 ]
 
 
