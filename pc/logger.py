@@ -106,6 +106,13 @@ class RawPort:
                               "dtr=off", "rts=off"], shell=True, capture_output=True, text=True)
         print("  " + " ".join((out.stdout + out.stderr).split())[:200])
         self.fh = open("\\\\.\\" + port, "rb", buffering=0)
+        try:                                   # release DTR and RTS: they hold the board in reset
+            import ctypes, msvcrt
+            h = msvcrt.get_osfhandle(self.fh.fileno())
+            ctypes.windll.kernel32.EscapeCommFunction(h, 6)   # CLRDTR
+            ctypes.windll.kernel32.EscapeCommFunction(h, 4)   # CLRRTS
+        except Exception as e:
+            print("  could not release DTR/RTS:", e)
 
     def readline(self):
         line = bytearray()
