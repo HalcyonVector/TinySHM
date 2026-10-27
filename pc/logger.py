@@ -226,10 +226,45 @@ def record(src, label, step, count, folder, log, predictor, show_total=True):
                 break
 
 
+def mean_f1(paths):
+    from features import extract, load_raw
+    f1 = [extract(load_raw(p))[0] for p in paths]
+    return float(np.median(f1)) if f1 else float("nan")
+
+
+def setup_check(ser, args, folder, log, predictor, n=5):
+    """New lab session, beam rebuilt: record a few healthy flicks and compare
+    their frequency with the healthy flicks already saved."""
+    before = sorted(folder.glob("healthy__0__*.txt"))
+    ref = mean_f1(before)
+    print(f"\n=== SETUP CHECK: beam rebuilt? Set it up HEALTHY (clamp tight, 3 clips, no coin).")
+    print(f"    {n} healthy flicks; earlier healthy flicks ring at {ref:.2f} Hz.")
+    ans = input("    Press C on the keypad, do the 10 calibration flicks, wait for the LCD,\n"
+                "    then press Enter (s = skip the check): ").strip().lower()
+    if ans == "s":
+        return
+    if ser is not None:
+        ser.reset_input_buffer()
+        src = flicks_from_port(ser)
+    else:
+        src = flicks_from_sim("healthy", 0)
+    record(src, "healthy", 0, n, folder, log, predictor)
+    now = mean_f1(sorted(set(folder.glob("healthy__0__*.txt")) - set(before)))
+    diff = abs(now - ref) / ref * 100
+    print(f"    today {now:.2f} Hz vs earlier {ref:.2f} Hz ({diff:.0f}% apart)")
+    if diff > 5:
+        print("    More than 5% off: check the clamp is tight, ruler A sits on its marks,\n"
+              "    ruler B overlap is 5 cm and the sensor is 2 cm from the tip. Then rerun.")
+    else:
+        print("    Matches. Carry on.")
+
+
 def run_plan(args, folder, log, predictor):
     """Walk through every condition with the port open the whole time."""
     ser = None if args.sim else open_serial(args.port, args.baud)
     try:
+        if next_id(folder, "healthy", 0) >= PLAN[0][2]:
+            setup_check(ser, args, folder, log, predictor)
         for label, step, want, what in PLAN:
             have = next_id(folder, label, step)
             left = want - have
