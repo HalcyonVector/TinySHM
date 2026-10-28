@@ -101,7 +101,7 @@ With a finite record, the FFT resolves frequency only to $\Delta f = F_s/N$. Bel
 Zonzini \emph{et al.}~\cite{zonzini2020} propose a sensor-to-cloud SHM architecture in which MEMS sensor nodes pre-process data before sending it. Ray~\cite{ray2022} and Capogrosso \emph{et al.}~\cite{capogrosso2024} review TinyML frameworks, model compression and deployment on microcontrollers. In SHM specifically, Burrello \emph{et al.}~\cite{burrello2022} train tiny autoencoders to detect anomalies near the sensor, Moallemi \emph{et al.}~\cite{moallemi2023} accelerate output-only system identification on a parallel RISC-V microcontroller, and Capello \emph{et al.}~\cite{capello2025} use neural architecture search to fit SHM models on resource-constrained devices.
 
 \subsection{Research gap}
-Table~\ref{tab:lit} summarises the closest works. Existing edge SHM studies use capable processors and anomaly-only or black-box models, while the beam classification studies run on a PC. None of them combines fault-type classification, a severity score and a change detector on a basic Cortex-M3, verified against real data with bit-level agreement between the PC and the board.
+Table~\ref{tab:lit} summarises the closest works. Existing edge SHM studies use capable processors and anomaly-only or black-box models, while the beam classification studies run on a PC. None of them combines fault-type classification, a severity score and a change detector on a basic Cortex-M3, verified against real data with identical outputs from the PC and the board.
 
 \begin{table}[t]
 \caption{Comparison with closely related work}
@@ -133,7 +133,7 @@ Fig.~\ref{fig:approach} shows the method. Labelled flicks are recorded on the bo
 \centering
 \begin{tikzpicture}[node distance=4mm and 5mm]
 \node[blk, fill=orange!12, text width=24mm] (beam) {Cantilever beam\\healthy / faults};
-\node[blk, fill=blue!10, right=of beam, text width=22mm] (acq) {MPU6050\\100 Hz, 1024 samples};
+\node[blk, fill=blue!10, right=of beam, text width=22mm] (acq) {MPU6050 sensor\\100 samples/s,\\1024 per flick};
 \node[blk, fill=green!10, right=of acq, text width=27mm] (feat) {Features (board)\\$f_1$, $\zeta$, amplitude,\\energy ratio, decay};
 \node[blk, fill=violet!10, right=of feat, text width=24mm] (log) {UART logger\\labelled dataset\\(89 flicks)};
 \node[blk, fill=violet!10, right=of log, text width=25mm] (train) {Training (Python)\\tree, kNN, NN,\\health, detectors};
@@ -179,18 +179,18 @@ Three fault types were introduced (Fig.~\ref{fig:faults}). \emph{Added mass}: a 
 \end{figure}
 
 \subsection{Hardware}
-Fig.~\ref{fig:block} shows the block diagram. The LPC1768 (ARM Cortex-M3, 100 MHz, 512 KB flash, 64 KB SRAM) sits on the ALS-SDA-ARMCTXM3-01 development board. The MPU6050 is read over a software I\textsuperscript{2}C bus on two GPIO pins, with the range set to $\pm4$~g and the internal low-pass filter at 44 Hz to prevent aliasing. Timer~0 triggers a reading every 10 ms. The board's 16$\times$2 LCD shows the result, eight LEDs form a health bar, and the 4$\times$4 keypad selects calibration, teach mode and display pages. UART0 at 19200 baud sends every result and, while logging, the raw samples to the laptop.
+Fig.~\ref{fig:block} shows the block diagram. The LPC1768 (ARM Cortex-M3, 100 MHz, 512 KB flash, 64 KB SRAM) sits on the ALS-SDA-ARMCTXM3-01 development board. The MPU6050 is read over a software I\textsuperscript{2}C bus on two GPIO pins, with its measuring range set to $\pm4$~g, so it can read accelerations up to four times gravity in either direction, and its internal low-pass filter set to 44 Hz to prevent aliasing. Timer~0 triggers a reading every 10 ms. The board's 16$\times$2 LCD shows the result, eight LEDs form a health bar, and the 4$\times$4 keypad selects calibration, teach mode and display pages. UART0 at 19200 baud sends every result and, while logging, the raw samples to the laptop.
 
 \begin{figure}[t]
 \centering
 \begin{tikzpicture}[node distance=3.5mm and 4mm]
 \node[blk, fill=orange!12, text width=17mm] (beam) {Steel ruler\\cantilever};
-\node[blk, fill=blue!10, below=of beam, text width=17mm] (mpu) {MPU6050\\$\pm$4 g, 44 Hz LPF};
-\node[blk, fill=green!10, right=8mm of mpu, text width=26mm, minimum height=24mm] (mcu) {\textbf{LPC1768}\\ARM Cortex-M3\\[2pt]Timer0 100 Hz\\FFT + features\\ML inference\\(\texttt{model.h})};
+\node[blk, fill=blue!10, below=of beam, text width=17mm] (mpu) {MPU6050\\range $\pm$4 g\\44 Hz filter};
+\node[blk, fill=green!10, right=8mm of mpu, text width=26mm, minimum height=24mm] (mcu) {\textbf{LPC1768}\\ARM Cortex-M3\\CPU clock 100 MHz\\[2pt]Timer0: sample\\every 10 ms\\FFT + features\\ML inference\\(\texttt{model.h})};
 \node[blk, fill=yellow!20, right=6mm of mcu.north east, anchor=north west, text width=16mm] (lcd) {16$\times$2 LCD};
 \node[blk, fill=yellow!20, below=2mm of lcd, text width=16mm] (led) {8 LEDs};
 \node[blk, fill=yellow!20, below=2mm of led, text width=16mm] (key) {4$\times$4 keypad};
-\node[blk, fill=violet!10, below=5mm of mcu, text width=26mm] (pc) {Laptop (Python)\\logger, training, export};
+\node[blk, fill=violet!10, below=5mm of mcu, text width=34mm] (pc) {Laptop (Python)\\logger, training,\\model export};
 \draw[arr] (beam) -- node[right, font=\scriptsize]{vibration} (mpu);
 \draw[arr] (mpu) -- node[above, font=\scriptsize]{I\textsuperscript{2}C} (mcu);
 \draw[arr] (mcu.east |- lcd) -- (lcd);
@@ -277,11 +277,11 @@ Fig.~\ref{fig:flow} shows the firmware loop. All models are compiled from the ex
 \centering
 \begin{tikzpicture}[node distance=2.6mm]
 \node[term] (start) {Start};
-\node[proc, below=of start] (init) {Init clock, UART, LCD, keypad, I\textsuperscript{2}C\\Check MPU6050 WHO\_AM\_I};
+\node[proc, below=of start] (init) {Init 100 MHz clock, UART, LCD, keypad, I\textsuperscript{2}C\\Check MPU6050 WHO\_AM\_I};
 \node[dec, below=of init] (cal) {Key C?};
 \node[proc, right=4mm of cal, minimum width=20mm] (calib) {Record 10 flicks\\set $\mu^h,\sigma^h$};
 \node[dec, below=of cal] (trig) {$|a|>0.3$ g?};
-\node[proc, below=of trig] (rec) {Record 1024 samples at 100 Hz};
+\node[proc, below=of trig] (rec) {Record 1024 samples (one every 10 ms)};
 \node[proc, below=of rec] (fft) {Hann window, FFT, interpolate $f_1$};
 \node[proc, below=of fft] (env) {RMS envelope: $\zeta$, $t_d$; $a_{\max}$, $E_r$};
 \node[proc, below=of env] (ml) {Tree, kNN, NN, health $H$};

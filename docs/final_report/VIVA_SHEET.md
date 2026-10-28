@@ -1,197 +1,224 @@
-# Viva sheet: papers and formulas
+# My viva notes: TinySHM
 
-This matches the final report (`paper.pdf`). Reference numbers [1] to [15] are the same as in the paper.
+These are my own notes for the viva. Reference numbers [1] to [15] match our paper.
 
 ---
 
-## Part 1. Every paper and what it does
+## Part 0. The facts I must not mix up
 
-### Group A. Why vibration tells you about damage
+**Two different "100" numbers.** This is the one I keep tripping on.
+- **100 MHz is the CPU clock.** The LPC1768 runs at 100 million cycles per second, so one cycle is 10 ns. The peripherals get PCLK = CCLK/4 = 25 MHz.
+- **100 Hz is the sampling rate.** I take 100 accelerometer readings per second, one every 10 ms. Timer0 makes this happen: it counts at 25 MHz, and I set its match register to 25,000,000 / 100 - 1 = 249,999. Every time it reaches that value it interrupts and I read the sensor.
+- The block diagram now says "CPU clock 100 MHz" and "Timer0: sample every 10 ms" so nobody reads it wrong.
+
+**What "±4 g" means.**
+- g is the acceleration of gravity, 9.81 m/s². The MPU6050 lets me pick a measuring range of ±2, ±4, ±8 or ±16 g.
+- I chose ±4 g, which means it can measure accelerations up to 4 times gravity in either direction (about ±39 m/s²). Anything bigger would clip.
+- The output is a 16-bit signed number (-32768 to +32767). Spread over ±4 g, that gives 32768 / 4 = **8192 counts per g**, so one count is about 0.12 mg.
+- Why not ±2 g? A hard flick on the tip can go past 2 g and clip, which would spoil the damping estimate. Why not ±8 g? I would lose resolution for nothing, because my flicks never get near 8 g.
+
+**Other hardware numbers.**
+- LPC1768: ARM Cortex-M3, 100 MHz, 512 KB flash, 64 KB SRAM, no floating point unit. Board: ALS-SDA-ARMCTXM3-01.
+- Keil uVision free version limits code to 32 KB. Our firmware is about 20 KB. The FFT buffers use 8 KB of RAM.
+- The MPU6050 is wired to two plain GPIO pins on the CNC connector (SDA pin 5, SCL pin 6), so I drive I2C in software (bit-banging). The bus runs at about 15 kHz because the long jumper wires failed at faster speeds.
+- MPU6050 internal digital low-pass filter: 44 Hz. It removes anything above my Nyquist limit of 50 Hz so it cannot alias.
+- UART0 at 19200 baud to the laptop. Our USB-serial cable failed above that.
+- 16×2 LCD shows class and health, 8 LEDs show a health bar, 4×4 keypad selects calibrate (key C), teach mode and display pages.
+- One recording: N = 1024 samples at 100 Hz = 10.24 s. Trigger: acceleration moves more than 0.3 g from rest.
+
+**The beam.**
+- Two 30 cm steel rulers. Ruler A sticks out 18.5 cm past the table edge, held by a 10 inch screw G-clamp over a cardboard pad.
+- Ruler B overlaps A by 13.5 cm and is held by three binder clips. Free length is about 35.5 cm.
+- MPU6050 taped near the tip (about the 26 cm mark). The healthy beam rings at about 4.74 Hz.
+- No drilling or cutting. Anyone can rebuild it.
+
+**The faults.**
+- Added mass: a Rs 20 and a Rs 5 coin taped at the 28 to 30 cm mark. This is a change but NOT damage.
+- Loose joint 1: middle clip removed. Loose joint 2: middle clip and one end clip removed.
+- Loose support: G-clamp screw loosened by about 1/4, 1/2 and 3/4 turn. Past 3/4 turn the beam falls off.
+
+**The data.**
+- 89 flicks in total. 68 for training, the rest held out (the 1/4 and 1/2 turn flicks plus 5 healthy re-check flicks).
+- I threw away 24 flicks recorded while the ruler overlap had slipped to 15 cm instead of 13.5 cm. That had moved the healthy frequency from 4.7 to 5.0 Hz, so those flicks were not comparable.
+
+---
+
+## Part 1. Every paper and how I used it
+
+### Why vibration tells me about damage
 
 **[1] Gharehbaghi et al., 2022, Springer (Arch. Comput. Methods Eng.)**
-- **What it does:** a big review that defines SHM properly. It splits SHM into levels: (1) is there damage, (2) where, (3) what type, (4) how bad, (5) how long is left. It compares physics-model methods with data-driven (ML) methods.
-- **Where we use it:** our board answers levels 1, 3 and 4 (CHANGED alarm, fault class, health %), and the trend line is a simple level 5.
+- A big review that defines SHM levels: is there damage, where is it, what type, how bad, and how much life is left. It compares physics-model methods with data-driven (ML) methods.
+- How I used it: my board answers "is there damage" (CHANGED alarm), "what type" (fault class) and "how bad" (health %). The trend line is a simple version of "how much life is left".
 
 **[2] Hou and Xia, 2021, Elsevier (J. Sound and Vibration)**
-- **What it does:** reviews 10 years (2010 to 2019) of vibration-based damage identification. It groups methods by feature: natural frequency, mode shape, damping, frequency response. Main point: frequency is the easiest to measure but tells you least about the type of damage, and temperature or added mass can shift it just like damage.
-- **Where we use it:** the physics behind formula 1 (f falls when stiffness drops or mass rises), and the reason we tested a coin (harmless change) separately.
+- Reviews ten years of vibration-based damage detection and groups methods by feature: frequency, mode shape, damping, frequency response. Its main point is that frequency is the easiest to measure but tells you least, and harmless things like temperature or extra mass also shift it.
+- How I used it: it is the physics behind formula 1, and it is why I tested the coins separately as a harmless change.
 
 **[3] Avci et al., 2021, Elsevier (Mech. Syst. Signal Process.)**
-- **What it does:** shows how the field moved from hand-set thresholds to ML and deep learning. The standard structure is: extract features from the signal, then feed them to a classifier.
-- **Where we use it:** justifies our pipeline: 5 features, then tree / kNN / neural net.
+- Shows how the field moved from hand-set thresholds to ML. The standard structure is feature extraction followed by a classifier.
+- How I used it: my pipeline follows that structure. Five features, then tree, kNN and neural network.
 
-### Group B. Machine learning for SHM
+### Machine learning for SHM
 
 **[4] Flah et al., 2021, Springer (Arch. Comput. Methods Eng.)**
-- **What it does:** a systematic review of ML algorithms used in civil SHM (supervised and unsupervised). Biggest problem it identifies: there is very little labelled data from real damaged structures.
-- **Where we use it:** explains why we used small, simple models (tree, kNN, tiny NN) that work with 68 training flicks, and why we added a novelty detector for faults we never trained on.
+- A systematic review of supervised and unsupervised ML in civil SHM. The biggest problem it names is the lack of labelled data from real damaged structures.
+- How I used it: it is why I picked small models that work with 68 flicks, and why I added a novelty detector for faults I never trained on.
 
 **[5] Bao and Li, 2021, SAGE (Structural Health Monitoring)**
-- **What it does:** argues ML is a new "paradigm" for SHM, covering damage identification, finding bad sensor data, and condition assessment.
-- **Where we use it:** supports the idea of giving a health score (condition assessment), not just a yes/no answer.
+- Argues ML is a new paradigm for SHM, covering damage identification, bad-data detection and condition assessment.
+- How I used it: it supports giving a health score (condition assessment), not just yes or no.
 
 **[6] Malekloo et al., 2022, SAGE (Structural Health Monitoring)**
-- **What it does:** overview of ML for SHM together with new technology: low-cost MEMS sensors, IoT nodes, drones, big data.
-- **Where we use it:** supports using a cheap MEMS accelerometer (MPU6050) instead of lab-grade sensors.
+- An overview of ML for SHM with new technology such as low-cost MEMS sensors and IoT nodes.
+- How I used it: it supports my choice of a cheap MEMS accelerometer instead of a lab-grade sensor.
 
 **[10] de Sousa et al., 2023, Springer (J. Vib. Eng. Technol.)**
-- **What it does:** the closest paper to ours. They put damage on cantilever beams and compared 5 classifiers (kNN, SVM, decision tree, random forest, naive Bayes). Using only natural-frequency features, accuracy was about 59 % to 94 %; using richer features it reached about 95 % on real data.
-- **Where we use it:** same conclusion as ours: frequency alone is not enough. Our frequency-only rule got 84 %, our ML got 94 %. Difference: they run on a PC, we run on the microcontroller.
+- The closest paper to mine. They damaged cantilever beams and compared kNN, SVM, decision tree, random forest and naive Bayes. With only frequency features they got about 59 % to 94 %. With richer features they got about 95 % on real data.
+- How I used it: same conclusion as mine, frequency alone is not enough. My frequency-only rule got 84.2 % and my neural network got 93.8 %. The difference is that they ran on a PC and I run on the microcontroller.
 
-### Group C. Our specific fault and our signal processing
+### My specific fault and my signal processing
 
 **[11] Huang et al., 2022, Elsevier (Mech. Syst. Signal Process.)**
-- **What it does:** reviews all ways to detect loosened bolts and fasteners (vibration, impedance, ultrasound, cameras, tapping sound). Key point for us: a loose joint changes stiffness AND increases energy loss by friction at the contact.
-- **Where we use it:** explains why loosening the G-clamp did not change frequency but raised damping by 18 %.
+- Reviews every way of detecting loose bolts and fasteners. The key point for me: looseness changes stiffness and also adds energy loss through friction at the contact.
+- How I used it: it explains why loosening the clamp did not change frequency but raised damping by 18 %.
 
-**[12] Belega and Petri, 2021, IEEE (I2MTC conference)**
-- **What it does:** shows that fitting a parabola through the 3 biggest FFT points around a peak gives a much more accurate frequency than the biggest bin alone, and analyses the error.
-- **Where we use it:** formula 4 (parabolic interpolation). Our error dropped from 0.027 Hz to 0.009 Hz.
+**[12] Belega and Petri, 2021, IEEE (I2MTC)**
+- Shows that fitting a parabola through the three biggest FFT points around a peak gives a much better frequency than the biggest bin alone.
+- How I used it: formula 5. My error dropped from 0.027 Hz to 0.009 Hz.
 
-### Group D. Running SHM on small chips (edge / TinyML)
+### SHM on small chips (TinyML)
 
 **[7] Zonzini et al., 2020, IEEE (Instrum. Meas. Magazine)**
-- **What it does:** proposes a sensor-to-cloud SHM system where MEMS sensor nodes do some processing locally before sending data.
-- **Where we use it:** motivation for doing processing at the sensor. We go further and do the whole decision on the board.
+- A sensor-to-cloud SHM system where MEMS sensor nodes pre-process data before sending it.
+- How I used it: motivation for processing at the sensor. I go further and make the whole decision on the board.
 
 **[8] Ray, 2022, Elsevier (J. King Saud Univ.)**
-- **What it does:** review of TinyML: running ML on microcontrollers with KBs of memory. Covers tools, hardware and challenges.
-- **Where we use it:** defines the TinyML idea behind our project.
+- A review of TinyML: ML on microcontrollers with only kilobytes of memory.
+- How I used it: it defines the TinyML idea behind my project.
 
 **[9] Capogrosso et al., 2024, IEEE Access**
-- **What it does:** a TinyML survey from the ML side: how to shrink models (quantisation, pruning, small architectures) and the workflow of training on a PC and deploying on a chip.
-- **Where we use it:** our workflow is exactly this: train in Python, export to `model.h`, flash to the board.
+- A TinyML survey from the ML side: shrinking models and the "train on PC, deploy on chip" workflow.
+- How I used it: that is exactly my workflow. Train in Python, export to `model.h`, flash the board.
 
-**[13] Burrello et al., 2022, IEEE (AICAS conference)**
-- **What it does:** trains tiny autoencoders that run near the sensor and flag abnormal vibration for SHM.
-- **Where we use it:** comparison. Theirs only says "anomaly"; ours names the fault, gives a health %, and is explainable (tree).
+**[13] Burrello et al., 2022, IEEE (AICAS)**
+- Tiny autoencoders near the sensor that flag abnormal vibration.
+- How I used it: comparison. Theirs only says "anomaly". Mine names the fault, gives a health score and is explainable.
 
 **[14] Moallemi et al., 2023, IEEE Sensors Letters**
-- **What it does:** runs system identification (AR/ARMA models of the vibration) on a multi-core RISC-V microcontroller, about 60 times faster than single core.
-- **Where we use it:** comparison. They need a powerful parallel chip; we use a basic single-core Cortex-M3 with no floating-point unit.
+- Runs system identification on a multi-core RISC-V microcontroller.
+- How I used it: comparison. They need a powerful parallel chip. I use a basic single-core Cortex-M3 with no FPU.
 
 **[15] Capello et al., 2025, Springer (LNEE)**
-- **What it does:** uses neural architecture search (automatic design of the network) to fit SHM models onto resource-limited devices.
-- **Where we use it:** comparison. We chose a hand-designed 5-8-4 network with only 84 weights instead.
+- Uses neural architecture search to fit SHM models onto small devices.
+- How I used it: comparison. I hand-designed a 5-8-4 network with only 84 weights.
 
-**The gap we fill (say this if asked "what is new"):** edge SHM papers [13]-[15] use powerful chips and only detect anomalies; beam ML papers [10] run on a PC. We do fault type + health score + change alarm on a basic Cortex-M3, on real data, and prove the board gives the same answer as the PC on all 89 flicks.
+**My answer to "what is new?"** Edge SHM papers [13] to [15] use strong chips and only detect anomalies. Beam ML papers like [10] run on a PC. I do fault type, health score and a change alarm on a basic Cortex-M3, on real data, and I showed the board gives the same answer as the PC on all 89 flicks.
 
 ---
 
 ## Part 2. Every formula: what it does and where it comes from
 
-Some formulas are older than 2020, so their original source is not in our reference list (which must be 2020 to 2026). The table says which of our papers uses each one, and where it originally came from. You can mention the original source verbally.
+Some of these are older than 2020, so their original source is not in our reference list. I can mention the original source out loud.
 
-### 1. Natural frequency of a spring-mass system
+### 1. Natural frequency of a spring and mass
 f = (1 / 2π) √(k / m)
+- What it does: frequency goes down if stiffness k drops (loose joint) or mass m rises (coins).
+- Where it comes from: Newton's second law. For a mass on a spring, m x'' + k x = 0. The solution is a sine wave with ω = √(k/m), and f = ω / 2π. Any vibration textbook (S. S. Rao, *Mechanical Vibrations*). In the paper I cite it through [2].
+- My result: coins lowered f1 by 22 %, loose joint by about 6 %.
 
-- **What it does:** says frequency goes down if stiffness k goes down (loose joint) or mass m goes up (coin).
-- **Where it comes from:** Newton's second law. For a mass on a spring, force = -k x, so m x'' + k x = 0. The solution is a sine wave x = A sin(ωt) with ω = √(k/m), and f = ω / 2π.
-- **Source:** any vibration textbook (S. S. Rao, *Mechanical Vibrations*). In our paper cited through [2].
-- **Our result:** coins: -22 %. Loose joint: -6 %.
-
-### 2. Cantilever beam frequency (if asked why the ruler rings at about 4.7 Hz)
+### 2. Cantilever beam frequency (if asked why it rings at about 4.7 Hz)
 f1 = (1.875² / 2π) √(E I / (ρ A L⁴))
-
-- **What it does:** frequency of a beam clamped at one end. Longer beam (L) means much lower frequency (falls with L²).
-- **Where it comes from:** the Euler-Bernoulli beam equation E I ∂⁴w/∂x⁴ + ρ A ∂²w/∂t² = 0. With one end clamped and one free, the solution must satisfy cos(βL) cosh(βL) = -1, whose first root is βL = 1.875.
-- **Source:** Euler and Bernoulli (18th century); textbook: Rao, *Mechanical Vibrations*.
-- **Note:** our beam is two overlapped rulers, so it does not match this exactly. That is one reason we use ML on measured data instead of the formula.
+- What it does: frequency of a beam clamped at one end. It falls with L², so length matters a lot.
+- Where it comes from: the Euler-Bernoulli beam equation. With one end clamped and one free, the first root of cos(βL) cosh(βL) = -1 is βL = 1.875.
+- My note: my beam is two overlapping rulers, so it does not match exactly. That is one reason I learn from measured data instead.
 
 ### 3. Hann window
 w[n] = 0.5 - 0.5 cos(2πn / (N - 1))
+- What it does: fades the recording to zero at both ends so the peak does not smear into neighbouring bins (spectral leakage).
+- Where it comes from: a raised cosine named after Julius von Hann, made popular by Blackman and Tukey (1958) and Harris (Proc. IEEE, 1978).
 
-- **What it does:** fades the recording to zero at both ends. Without it, the sudden start and end cause "spectral leakage" (the peak smears into neighbouring bins).
-- **Where it comes from:** a raised cosine, named after meteorologist Julius von Hann. Made popular for spectra by Blackman and Tukey (1958) and the review by F. J. Harris (Proc. IEEE, 1978).
-
-### 4. FFT and frequency resolution
-X[k] = Σ x[n] e^(-j2πkn/N),  Δf = Fs / N = 100 / 1024 = 0.098 Hz
-
-- **What it does:** turns 1024 time samples into a spectrum. Each bin is 0.098 Hz wide.
-- **Where it comes from:** the Discrete Fourier Transform (from Fourier series). Δf = Fs/N because the recording lasts T = N/Fs = 10.24 s and the DFT can only separate frequencies 1/T apart. The fast algorithm (N log₂N steps instead of N²) is Cooley and Tukey (1965), radix-2, which is why N must be a power of 2.
-- **Our result:** 117 ms on the LPC1768.
+### 4. FFT and bin width
+X[k] = Σ x[n] w[n] e^(-j2πkn/N), Δf = Fs / N = 100 / 1024 = 0.098 Hz
+- What it does: turns 1024 time samples into a spectrum. Each bin is 0.098 Hz wide.
+- Where it comes from: the Discrete Fourier Transform. Δf = Fs / N because the record lasts N / Fs = 10.24 s, and you can only separate frequencies 1 / 10.24 s apart. The fast radix-2 algorithm is Cooley and Tukey (1965), which is why N must be a power of 2.
+- My result: 117 ms on the LPC1768.
 
 ### 5. Parabolic peak interpolation [12]
-δ = ½ (α - γ) / (α - 2β + γ),  f1 = (k + δ) Δf
-
-- **What it does:** finds the true peak between two bins.
-- **Where it comes from:** fit a parabola y = a(x - p)² + c through the three points (-1, α), (0, β), (+1, γ), where β is the biggest bin. Solving the three equations for the vertex p gives exactly δ above. Belega and Petri [12] analyse its accuracy; the classic short note is Jacobsen and Kootsookos (IEEE Signal Processing Magazine, 2007).
-- **Our result:** 0.009 Hz average error vs 0.027 Hz without it.
+δ = ½ (α - γ) / (α - 2β + γ), f1 = (k_p + δ) Δf
+- What it does: finds the true peak between two bins.
+- Where it comes from: fit a parabola through the three points (-1, α), (0, β), (+1, γ), where β is the biggest bin. Solving for the top of the parabola gives δ.
+- My result: 0.009 Hz average error, against 0.027 Hz for the plain peak bin. The reference was a 16× zero-padded FFT (1024 samples padded to 16384 points).
 
 ### 6. Damping ratio from the decay
-x(t) = A e^(-ζωt) sin(ω_d t)  →  ln A(t) = ln A0 - ζ (2π f1) t  →  ζ = -slope / (2π f1)
-
-- **What it does:** measures how fast the vibration dies out. Higher ζ = more energy lost (for example friction at a loose clamp).
-- **Where it comes from:** add a damper to formula 1: m x'' + c x' + k x = 0, with ζ = c / (2√(km)). The solution is a sine inside a decaying exponential. Taking the log of the envelope gives a straight line whose slope is -ζω, so we fit a line (formula 11) and divide. The textbook version using only two peaks is the logarithmic decrement δ = ln(x_n / x_n+1) ≈ 2πζ; ours uses every 0.25 s window, so it is less noisy.
-- **Source:** Rao, *Mechanical Vibrations*. Damping as a damage feature: [2], [11].
-- **Our result:** clamp at 3/4 turn: 2.92 % → 3.45 % (+18 %).
+A(t) = A0 e^(-ζ ω1 t) → ln A(t) = ln A0 - ζ (2π f1) t → ζ = -s / (2π f1)
+- What it does: measures how fast the ringing dies. Higher ζ means more energy lost, for example by friction at a loose clamp.
+- Where it comes from: add a damper to formula 1: m x'' + c x' + k x = 0. The solution is a sine inside a decaying exponential. Taking the log of the envelope gives a straight line with slope s = -ζω1. I fit that line over 0.25 s RMS windows (formula 14). The two-peak textbook version is the logarithmic decrement; mine uses many windows so it is less noisy.
+- My result: clamp at 3/4 turn raised damping from 2.92 % to 3.45 % (+18 %).
 
 ### 7. Energy ratio
-E_r = (energy in 3-40 Hz band - energy within ±1 Hz of the peak) / energy in band
+E_r = (energy in 3 to 40 Hz band minus energy within ±1 Hz of the peak) / energy in band
+- What it does: how much of the vibration is not the main ring, for example rattle and harmonics.
+- Where it comes from: my own feature, based on Parseval's theorem (signal energy equals the sum of |X[k]|²).
 
-- **What it does:** how much vibration is NOT the main ring (rattle, harmonics).
-- **Where it comes from:** our own feature, based on Parseval's theorem (energy of a signal = sum of |X[k]|² in the spectrum).
-
-### 8. Standardisation (z-score of each feature)
+### 8. Standardising features
 x̃ = (x - μ) / σ
-
-- **What it does:** puts all features on the same scale, so Hz and % can be compared in one distance.
-- **Where it comes from:** basic statistics (the standard score).
+- What it does: puts Hz, %, g and seconds on the same scale so they can share one distance.
 
 ### 9. Change detector
-z = √( (1/5) Σ ((x_i - μ_i) / σ_i)² ), alarm if z > 3
+z = √( (1/5) Σ ((x_i - μ_i^h) / σ_i^h)² ), alarm (CHANGED) if z > 3
+- What it does: how far this flick is from the healthy baseline, in standard deviations.
+- Where it comes from: a simplified Mahalanobis distance (1936) that ignores correlations, so it is cheap on the chip. Using it for damage is outlier analysis (Worden et al., J. Sound Vib., 2000). The 3 comes from the 3-sigma rule.
+- The baseline can be recalibrated on the board: press C and give ten healthy flicks.
 
-- **What it does:** how far this flick is from the healthy baseline, in standard deviations.
-- **Where it comes from:** a simplified Mahalanobis distance (P. C. Mahalanobis, 1936) that ignores correlations, so it is cheap on the chip. Using it for damage detection is "outlier analysis" (Worden, Manson and Fieller, J. Sound Vib., 2000). The threshold 3 is the 3-sigma rule: 99.7 % of normal data lies within 3σ.
-
-### 10. Decision tree split (Gini impurity)
+### 10. Decision tree (Gini impurity)
 G = 1 - Σ p_c²
+- What it does: each split picks the feature and threshold that make the groups as pure as possible.
+- Where it comes from: CART, Breiman et al. (1984). Depth 3, exported as nested if statements.
+- My result: f1 used for 71 % of splits, damping for 27 %.
 
-- **What it does:** each split picks the feature and threshold that makes the groups most "pure" (one class each).
-- **Where it comes from:** CART algorithm, Breiman, Friedman, Olshen and Stone, *Classification and Regression Trees* (1984).
-- **Our result:** f1 used for 71 % of decisions, damping 27 %.
-
-### 11. kNN and Euclidean distance
-d = √Σ (x̃_i - ỹ_i)², class = majority of the 3 nearest
-
-- **What it does:** labels a new flick like its 3 most similar stored flicks.
-- **Where it comes from:** Fix and Hodges (1951), proved by Cover and Hart (IEEE Trans. Inf. Theory, 1967): with enough data its error is at most twice the best possible. Distance is Pythagoras in 5 dimensions.
+### 11. kNN
+d = √Σ (x̃_i - ỹ_i)², class = majority of the 3 nearest flicks
+- Where it comes from: Fix and Hodges (1951), Cover and Hart (1967). The 68 training flicks are stored on the chip, and teach mode lets me add more.
 
 ### 12. Neural network 5-8-4
-h = ReLU(W1 x̃ + b1), p = softmax(W2 h + b2), ReLU(v) = max(0, v), softmax p_c = e^(z_c) / Σ e^(z_j)
-
-- **What it does:** 5 inputs, 8 hidden neurons, 4 outputs (one per class). Softmax turns outputs into probabilities that add to 1; the biggest is the answer and its value is the confidence.
-- **Where it comes from:** multilayer perceptron trained by backpropagation (Rumelhart, Hinton and Williams, Nature, 1986). ReLU: Nair and Hinton (2010). Softmax: Bridle (1990). Trained with scikit-learn's Adam optimiser. 5×8 + 8 + 8×4 + 4 = 84 weights.
+h = max(0, W1 x̃ + b1), p = softmax(W2 h + b2)
+- What it does: 5 inputs, 8 hidden ReLU neurons, 4 outputs. Softmax turns outputs into probabilities. The biggest is the answer and its value is the confidence.
+- Where it comes from: multilayer perceptron with backpropagation (Rumelhart, Hinton and Williams, 1986). Weights: 5×8 + 8 + 8×4 + 4 = 84.
 
 ### 13. Health score
-H = 100 × (1 - average damage level of the 3 nearest flicks)
+H = 100 × (1 - average damage level of the 3 nearest flicks); below 40 = UNSAFE
+- Damage levels I assigned: healthy 0, coins 0, loose joint 0.5 and 1.0, loose support up to 0.75.
+- My result: average error 5.6 points (straight-line regression: 17.8). Healthy flicks averaged 95.8 and none fell below 40.
 
-- **What it does:** turns the class into a 0-100 % health number. Below 40 % = UNSAFE.
-- **Where it comes from:** our design, using kNN regression (same idea as formula 11, but averaging a number instead of voting). Damage levels are our labels: healthy 0, coin 0 (not damage), loose joint 0.5 / 1.0, loose support 0.25 / 0.5 / 0.75.
-- **Our result:** average error 5.6 points (straight-line regression: 17.8).
+### 14. Least-squares line (used for the damping slope and the trend)
+b = Σ (t - t̄)(y - ȳ) / Σ (t - t̄)², a = ȳ - b t̄, unsafe step = (40 - a) / b
+- Where it comes from: Legendre (1805) and Gauss (1809).
+- My result: health over support steps was 97, 66, 69, 33. The line through steps 0 to 2 predicted unsafe at step 3.6; it was really unsafe at step 3.
 
-### 14. Least-squares line (used twice: damping slope and trend)
-slope b = Σ (t - t̄)(y - ȳ) / Σ (t - t̄)², intercept a = ȳ - b t̄; unsafe step = (40 - a) / b
+### 15. Novelty detector
+UNKNOWN if the nearest stored flick is farther than 2 × the 95th percentile of nearest-neighbour distances in training.
+- What it does: says "I have not seen this before" instead of forcing a wrong label.
 
-- **What it does:** best straight line through points. For damping, y = ln RMS. For the trend, y = health per step.
-- **Where it comes from:** method of least squares, Legendre (1805) and Gauss (1809): choose a, b to minimise the sum of squared errors; setting the derivatives to zero gives these formulas.
-- **Our result:** predicted unsafe at step 3.6; real beam unsafe at step 3.
+### 16. Sampling rule (if asked "why 100 Hz?")
+Fs > 2 f_max (Nyquist and Shannon)
+- The beam rings at 3.6 to 4.8 Hz, and I look at 3 to 40 Hz. 100 Hz is well above twice that, and the 44 Hz filter stops aliasing.
 
-### 15. Sampling rule (if asked "why 100 Hz?")
-Fs > 2 f_max (Nyquist-Shannon)
-
-- **Where it comes from:** Nyquist (1928) and Shannon (1949). The beam rings at 3.6 to 4.8 Hz; 100 Hz is far above 2 × 4.8. The MPU6050's 44 Hz internal filter removes anything above 50 Hz so it cannot alias.
-
-### 16. Cross-validation (if asked "how did you test accuracy?")
-- Split the 68 training flicks into 5 parts; train on 4, test on 1; rotate; repeat 5 times with different shuffles; average. "Stratified" keeps the class mix the same in each part.
-- **Source:** Stone (1974); standard in scikit-learn.
+### 17. Cross-validation (if asked "how did you test accuracy?")
+- 5-fold stratified, repeated 5 times on the 68 training flicks. Train on 4 parts, test on 1, rotate, reshuffle, average. Stratified means each part keeps the same class mix.
 
 ---
 
-## Part 3. Likely questions, short answers
+## Part 3. Questions I expect, and what I will say
 
-- **Why not just use frequency?** [2] and [10] say it is not enough, and our data proves it: loosening the clamp did not change f1 at all, only damping. Frequency-only 84 %, neural net 94 %.
-- **Why is the coin not damage?** It adds mass, it does not remove stiffness. So it is its own class (ADDED MASS) with damage 0.
-- **Why did the first two clamp steps fail?** The screw clamp keeps gripping until about 3/4 turn, so damping stayed inside the healthy spread. We report it as the detection limit instead of hiding it.
-- **Is the ML really on the chip?** Yes. Training is on the laptop; the tree, NN weights and kNN data are exported to `model.h` and compiled in. C and Python agree on all 89 flicks. About 20 KB of flash.
-- **What is new compared to the papers?** See the "gap" line at the end of Part 1.
+- **Why not just use frequency?** Because loosening the clamp did not change f1 at all (4.75 Hz against 4.74 Hz), only damping. Frequency-only got 84.2 %, the neural network got 93.8 %.
+- **Why is the coin not damage?** It adds mass but removes no stiffness. So it is its own class with damage level 0. It shows the system does not panic at a harmless change.
+- **Why did 1/4 and 1/2 turn fail?** The screw clamp keeps gripping until about 3/4 turn, so damping stayed inside the healthy range. I report this as my detection limit instead of hiding it. On those held-out flicks the neural network still flagged 4 of 8 and 3 of 8 as loose support.
+- **Is the ML really on the chip?** Yes. Training happens on the laptop. The tree, network weights and kNN data are exported to `model.h` and compiled into the firmware. I ran the same C code on the PC and it matched Python on all 89 flicks.
+- **How long does one decision take?** The recording itself is 10.24 s. The FFT takes 117 ms, so processing is tiny in comparison.
+- **Why not zero-crossing counting? It is faster.** It is 28 times faster (4.2 ms), but its error is 0.34 Hz, bigger than the 0.27 Hz shift a loose joint causes. So it cannot tell the classes apart.
+- **What went wrong during the experiment?** After a loose-joint test I re-clipped the rulers with 15 cm overlap instead of 13.5 cm. The healthy frequency jumped from 4.7 to 5.0 Hz, so my loose-support readings looked healthy. I caught it with a healthy re-check, discarded those 24 flicks and redid the tests at 13.5 cm. After all faults, the healthy check read 4.68 Hz against the original 4.74 Hz.
+- **Why 100 MHz and 100 Hz, are those the same thing?** No. 100 MHz is how fast the CPU runs. 100 Hz is how often I read the sensor. See Part 0.
+- **What does ±4 g mean?** The accelerometer can measure up to 4 times gravity in either direction, at 8192 counts per g. See Part 0.
+- **Limitations?** 89 flicks from one beam in one room, flicks by hand, only the first mode, and no temperature study. Next steps: a mechanical exciter, temperature compensation, a second sensor for higher modes, and data over several days.
+- **What would I improve first?** More data on early support loosening, because that is where my system is weakest.
