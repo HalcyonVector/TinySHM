@@ -164,16 +164,14 @@ Three fault types were introduced (Fig.~\ref{fig:faults}). \emph{Added mass}: a 
 
 \begin{figure}[t]
 \centering
-\includegraphics[height=40mm]{photo_setup_coin.jpg}\hfill
-\includegraphics[height=40mm]{photo_setup_top.jpg}
+\includegraphics[width=\linewidth]{photo_pair_setup.jpg}
 \caption{Experimental setup. Left: LPC1768 board, power supply and the clamped two-ruler cantilever with the MPU6050 near the tip. Right: side view showing the three binder clips, the G-clamp and the wiring to the board.}
 \label{fig:setup}
 \end{figure}
 
 \begin{figure}[t]
 \centering
-\includegraphics[height=48mm]{photo_coin_close.jpg}\hfill
-\includegraphics[height=48mm]{photo_joint_removed.jpg}
+\includegraphics[width=\linewidth]{photo_pair_faults.jpg}
 \caption{Fault cases. Left: added mass, coins taped beyond the sensor. Right: loose joint, clips removed from the ruler overlap.}
 \label{fig:faults}
 \end{figure}
@@ -222,9 +220,9 @@ w[n] = 0.5 - 0.5\cos\!\left(\frac{2\pi n}{N-1}\right),
 \end{equation}
 and transformed with a radix-2 FFT,
 \begin{equation}
-X[k] = \sum_{n=0}^{N-1} x[n]\,w[n]\,e^{-j2\pi kn/N},\qquad \Delta f = \frac{F_s}{N} = 0.098\ \text{Hz}.
+X[k] = \sum_{n=0}^{N-1} x[n]\,w[n]\,e^{-j2\pi kn/N}.
 \end{equation}
-The largest bin $k_p$ between 3 and 40 Hz is refined with parabolic interpolation through its magnitude $\beta$ and its neighbours $\alpha$ and $\gamma$~\cite{belega2021}:
+The bin width is $\Delta f = F_s/N = 0.098$ Hz, and the largest bin $k_p$ between 3 and 40 Hz is refined with parabolic interpolation through its magnitude $\beta$ and its neighbours $\alpha$ and $\gamma$~\cite{belega2021}:
 \begin{equation}
 \delta = \frac{1}{2}\,\frac{\alpha-\gamma}{\alpha-2\beta+\gamma},\qquad f_1 = (k_p+\delta)\,\Delta f.
 \label{eq:interp}
