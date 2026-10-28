@@ -362,9 +362,6 @@ Zero-crossing & 0.338 Hz & 2.07 Hz & 4.2 ms & none \\
 \label{fig:methods}
 \end{figure}
 
-\subsection{Each fault has its own signature}
-Fig.~\ref{fig:fingerprint} plots damping against frequency for every flick. The added mass lowers $f_1$ by 22\%, as \eqref{eq:sdof} predicts for an increase in $m$. Removing clips lowers $f_1$ by about 6\% through a loss of joint stiffness, and removing the second clip also lowers damping from 2.9\% to 1.2\%, because less friction remains at the overlap. Loosening the support does not change $f_1$ at all (4.75 Hz against 4.74 Hz) but raises damping, since the loosely held end dissipates energy through friction, consistent with the loosening literature~\cite{huang2022}. A frequency-only method therefore cannot see this fault.
-
 \begin{figure}[t]
 \centering
 \includegraphics[width=\linewidth]{features_f1_vs_damping.png}
@@ -372,15 +369,25 @@ Fig.~\ref{fig:fingerprint} plots damping against frequency for every flick. The 
 \label{fig:fingerprint}
 \end{figure}
 
-\subsection{Detection limit for support loosening}
-Fig.~\ref{fig:support} shows damping at each loosening step. At 1/4 and 1/2 turn the damping lies inside the healthy spread, while at 3/4 turn every flick is above the highest healthy flick, with a median increase of 18\%. The screw clamp keeps gripping the ruler until it is almost released, so the first two steps are below the detection limit of this setup. On these held-out flicks the neural network labelled 4 of 8 and 3 of 8 as loose support, and the change detector fired once, which is consistent with features that sit on the boundary of the healthy cluster.
-
 \begin{figure}[t]
 \centering
 \includegraphics[width=\linewidth]{support_damping.png}
 \caption{Damping ratio at each support-loosening step compared with the healthy range.}
 \label{fig:support}
 \end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{accuracy_comparison.png}
+\caption{Accuracy of the frequency-only rule and the three classifiers.}
+\label{fig:acc}
+\end{figure}
+
+\subsection{Each fault has its own signature}
+Fig.~\ref{fig:fingerprint} plots damping against frequency for every flick. The added mass lowers $f_1$ by 22\%, as \eqref{eq:sdof} predicts for an increase in $m$. Removing clips lowers $f_1$ by about 6\% through a loss of joint stiffness, and removing the second clip also lowers damping from 2.9\% to 1.2\%, because less friction remains at the overlap. Loosening the support does not change $f_1$ at all (4.75 Hz against 4.74 Hz) but raises damping, since the loosely held end dissipates energy through friction, consistent with the loosening literature~\cite{huang2022}. A frequency-only method therefore cannot see this fault.
+
+\subsection{Detection limit for support loosening}
+Fig.~\ref{fig:support} shows damping at each loosening step. At 1/4 and 1/2 turn the damping lies inside the healthy spread, while at 3/4 turn every flick is above the highest healthy flick, with a median increase of 18\%. The screw clamp keeps gripping the ruler until it is almost released, so the first two steps are below the detection limit of this setup. On these held-out flicks the neural network labelled 4 of 8 and 3 of 8 as loose support, and the change detector fired once, which is consistent with features that sit on the boundary of the healthy cluster.
 
 \subsection{Classification accuracy}
 Table~\ref{tab:acc} and Fig.~\ref{fig:acc} give the cross-validated accuracy. All three ML models beat the frequency-only rule by 8 to 10 percentage points. The decision tree uses $f_1$ for 71\% of its splits and damping for 27\%, confirming that the gain comes from the damping feature. The confusion matrices in Fig.~\ref{fig:cm} show that most remaining errors are between healthy and loose support, the hardest pair. All five healthy re-check flicks were classified as healthy with no CHANGED alarm.
@@ -404,33 +411,24 @@ Neural network 5-8-4 & \textbf{93.8\%} \\
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=\linewidth]{accuracy_comparison.png}
-\caption{Accuracy of the frequency-only rule and the three classifiers.}
-\label{fig:acc}
-\end{figure}
-
-\begin{figure*}[t]
-\centering
-\includegraphics[width=0.85\textwidth]{confusion_matrices.png}
-\caption{Confusion matrices from cross-validation.}
+\includegraphics[width=\linewidth]{confusion_matrices.png}
+\caption{Confusion matrices from cross-validation (left to right: frequency only, decision tree, neural network).}
 \label{fig:cm}
-\end{figure*}
+\end{figure}
 
 \subsection{Health score and trend}
 The kNN health score had a mean absolute error of 5.6 points, against 17.8 points for linear regression on the same features (Fig.~\ref{fig:health}). In leave-one-out tests, healthy flicks scored 95.8 on average and none fell below the unsafe threshold. Over the support-loosening steps the mean health was 97, 66, 69 and 33. A line fitted to steps 0 to 2 predicted the beam would become unsafe at step 3.6; in the experiment it was unsafe at step 3, so the forecast was slightly late but in the right range (Fig.~\ref{fig:health}, right).
 
-\begin{figure*}[t]
+\begin{figure}[t]
 \centering
-\includegraphics[width=0.48\textwidth]{health_score.png}\hfill
-\includegraphics[width=0.48\textwidth]{trend.png}
+\includegraphics[width=0.49\linewidth]{health_score.png}\hfill
+\includegraphics[width=0.49\linewidth]{trend.png}
 \caption{Left: predicted against true health score. Right: health over successive loosening steps and the predicted unsafe point.}
 \label{fig:health}
-\end{figure*}
+\end{figure}
 
 \subsection{On-board operation}
 The complete firmware, including the FFT, all six models and the training data needed by kNN, occupies about 20 KB of flash, within the 32 KB limit of the free Keil toolchain, and the FFT buffers use 8 KB of RAM. The C implementation was run on all 89 flicks on the PC and produced the same features and decisions as the Python reference for every flick. Fig.~\ref{fig:board} shows the board reporting a detected change and an unsafe health value during a fault test.
-
-
 
 \subsection{Contributions verified through results}
 Each claimed contribution is backed by a measured result. The assemble-only bench produced repeatable conditions: the healthy re-check after all faults gave 4.68 Hz against the original 4.74 Hz, and all five re-check flicks were classified healthy. The interpolated FFT on the Cortex-M3 measured frequency to within 0.009 Hz on average, ten times finer than the 0.098 Hz bin, in 117 ms. Adding damping and three other features raised four-class accuracy from 84.2\% for the classical frequency rule to 93.8\% with the neural network, and damping alone exposed support loosening, which left frequency unchanged and increased damping by 18\%. The kNN health score tracked damage severity with a mean error of 5.6 points and kept every healthy flick above the unsafe limit, and its trend forecast placed the unsafe point within one step of the observed one. Finally, the exported C models reproduced the Python features and decisions on all 89 flicks while using about 20 KB of flash. The experiment also set an honest limit: support loosening below about 3/4 turn could not be distinguished from the healthy state with this sensor and structure.
@@ -439,7 +437,6 @@ Each claimed contribution is backed by a measured result. The assemble-only benc
 The dataset is small (89 flicks) and comes from one structure in one room, so temperature and long-term drift were not studied. Flicks were applied by hand, which varies the amplitude; the amplitude feature absorbs this, but a mechanical exciter would give cleaner data. Only the first mode was used.
 
 %=====================================================================
-\FloatBarrier
 \section{Conclusion}
 %=====================================================================
 This paper showed that a complete vibration-based damage detection pipeline, from raw acceleration to a fault name, a health score and a trend forecast, can run on an entry-level ARM Cortex-M3 with a low-cost MEMS accelerometer. On a tool-free cantilever bench the system separated healthy, added-mass, loose-joint and loose-support conditions with 93.8\% accuracy, compared with 84.2\% for the classical frequency-shift rule, and the health score had a mean error of 5.6 points. The key finding is that damping, which the frequency rule ignores, is the only usable indicator of support loosening. All models fit in about 20 KB of flash and agree exactly with their PC reference. Future work will add a mechanical exciter, temperature compensation, higher modes from a second sensor and a larger multi-day dataset to lower the detection limit for early loosening.
@@ -448,6 +445,7 @@ This paper showed that a complete vibration-based damage detection pipeline, fro
 The authors thank their guides, Dr. G Pradeep Reddy and Pragya Jha, Assistant Professors, School of Computer Engineering, Manipal Institute of Technology, for their guidance, and the Embedded Systems Laboratory for the LPC1768 boards.
 
 %=====================================================================
+\IEEEtriggeratref{9}
 \begin{thebibliography}{00}
 \bibitem{gharehbaghi2022} V. R. Gharehbaghi, E. Noroozinejad Farsangi, M. Noori, T. Y. Yang, S. Li, A. Nguyen, C. M\'alaga-Chuquitaype, P. Gardoni and S. Mirjalili, ``A critical review on structural health monitoring: Definitions, methods, and perspectives,'' \emph{Archives of Computational Methods in Engineering}, vol. 29, no. 4, pp. 2209--2235, 2022, doi: 10.1007/s11831-021-09665-9.
 

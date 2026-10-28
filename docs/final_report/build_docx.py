@@ -376,7 +376,7 @@ def equation(content):
 
 def text_paragraphs(chunk):
     for part in re.split(r"\n\s*\n", chunk):
-        part = re.sub(r"\\FloatBarrier", "", part).strip()
+        part = re.sub(r"\\FloatBarrier|\\IEEEtriggeratref\{\d+\}", "", part).strip()
         if part:
             p = para(doc)
             add_inline(p, part)
