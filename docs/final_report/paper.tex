@@ -8,6 +8,7 @@
 \usepackage{textcomp}
 \usepackage{xcolor}
 \usepackage{booktabs}
+\usepackage{placeins}
 \usepackage{tikz}
 \usetikzlibrary{arrows.meta,positioning,shapes.geometric,fit,calc}
 \usepackage[hidelinks]{hyperref}
@@ -29,23 +30,9 @@
 \title{Vibration-Based Structural Damage Detection Using an ARM Cortex-M3 Microcontroller}
 
 \author{
-\IEEEauthorblockN{Sagnik Basu}
-\IEEEauthorblockA{\textit{Dept. of Computer Science and Engineering}\\
-\textit{Manipal Institute of Technology, MAHE}\\
-Manipal, India\\
-Reg. No. 240953528}
-\and
-\IEEEauthorblockN{Pranav Gaddam}
-\IEEEauthorblockA{\textit{Dept. of Computer Science and Engineering}\\
-\textit{Manipal Institute of Technology, MAHE}\\
-Manipal, India\\
-Reg. No. 240953548}
-\and
-\IEEEauthorblockN{Shobit Hegde}
-\IEEEauthorblockA{\textit{Dept. of Computer Science and Engineering}\\
-\textit{Manipal Institute of Technology, MAHE}\\
-Manipal, India\\
-Reg. No. 240953556}
+\IEEEauthorblockN{Sagnik Basu (240953528), Pranav Gaddam (240953548), Shobit Hegde (240953556)}
+\IEEEauthorblockA{\textit{CCE A, School of Computer Engineering}\\
+\textit{Manipal Institute of Technology}}
 }
 
 \maketitle
@@ -157,9 +144,9 @@ Three fault types were introduced (Fig.~\ref{fig:faults}). \emph{Added mass}: a 
 
 \begin{figure}[t]
 \centering
-\includegraphics[height=52mm]{photo_setup_coin.jpg}\hfill
-\includegraphics[height=52mm,trim=0 0 0 0,clip]{photo_setup_top.jpg}
-\caption{Experimental setup. Left: LPC1768 board, power supply and the clamped two-ruler cantilever with the MPU6050 near the tip. Right: top view showing the three binder clips, the G-clamp and the wiring to the board.}
+\includegraphics[height=40mm]{photo_setup_coin.jpg}\hfill
+\includegraphics[height=40mm]{photo_setup_top.jpg}
+\caption{Experimental setup. Left: LPC1768 board, power supply and the clamped two-ruler cantilever with the MPU6050 near the tip. Right: side view showing the three binder clips, the G-clamp and the wiring to the board.}
 \label{fig:setup}
 \end{figure}
 
@@ -432,6 +419,7 @@ Each claimed contribution is backed by a measured result. The assemble-only benc
 The dataset is small (89 flicks) and comes from one structure in one room, so temperature and long-term drift were not studied. Flicks were applied by hand, which varies the amplitude; the amplitude feature absorbs this, but a mechanical exciter would give cleaner data. Only the first mode was used.
 
 %=====================================================================
+\FloatBarrier
 \section{Conclusion}
 %=====================================================================
 This paper showed that a complete vibration-based damage detection pipeline, from raw acceleration to a fault name, a health score and a trend forecast, can run on an entry-level ARM Cortex-M3 with a low-cost MEMS accelerometer. On a tool-free cantilever bench the system separated healthy, added-mass, loose-joint and loose-support conditions with 93.8\% accuracy, compared with 84.2\% for the classical frequency-shift rule, and the health score had a mean error of 5.6 points. The key finding is that damping, which the frequency rule ignores, is the only usable indicator of support loosening. All models fit in about 20 KB of flash and agree exactly with their PC reference. Future work will add a mechanical exciter, temperature compensation, higher modes from a second sensor and a larger multi-day dataset to lower the detection limit for early loosening.
