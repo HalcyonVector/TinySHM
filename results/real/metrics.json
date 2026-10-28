@@ -1,0 +1,72 @@
+{
+  "dataset": "real",
+  "flicks": 68,
+  "accuracy": {
+    "Frequency only (no ML)": 0.8424175824175824,
+    "Decision tree": 0.9239560439560439,
+    "kNN (k=3)": 0.9206593406593407,
+    "Neural net (5-8-4)": 0.9380219780219781
+  },
+  "health_mae_points": {
+    "Linear regression": 17.835506068085916,
+    "kNN regression (k=3)": 5.637254901960784
+  },
+  "change_threshold": 3.0,
+  "novelty_threshold": 1.0873849324522915,
+  "unseen_test": {},
+  "held_out": {
+    "loose_support:1": {
+      "flicks": 8,
+      "nn_says": {
+        "healthy": 4,
+        "loose_support": 4
+      },
+      "flagged_changed": 0,
+      "f1_hz_median": 4.713,
+      "damping_median": 0.0326
+    },
+    "loose_support:2": {
+      "flicks": 8,
+      "nn_says": {
+        "healthy": 5,
+        "loose_support": 3
+      },
+      "flagged_changed": 1,
+      "f1_hz_median": 4.746,
+      "damping_median": 0.0313
+    },
+    "test:0": {
+      "flicks": 5,
+      "nn_says": {
+        "healthy": 5
+      },
+      "flagged_changed": 0,
+      "f1_hz_median": 4.682,
+      "damping_median": 0.0295
+    }
+  },
+  "train_exclude": [
+    "loose_support:1",
+    "loose_support:2"
+  ],
+  "flicks_per_class": {
+    "healthy": 30,
+    "loose_joint": 18,
+    "added_mass": 12,
+    "loose_support": 8
+  },
+  "tree_feature_importance": {
+    "f1_hz": 0.711,
+    "damping": 0.268,
+    "amp_g": 0.0,
+    "energy_ratio": 0.0,
+    "decay_s": 0.02
+  },
+  "healthy_baseline_mean": {
+    "f1_hz": 4.71499,
+    "damping": 0.02964,
+    "amp_g": 2.84785,
+    "energy_ratio": 0.00541,
+    "decay_s": 2.775
+  }
+}

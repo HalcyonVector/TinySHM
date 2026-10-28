@@ -1,0 +1,17 @@
+{
+  "fault": "loose_support",
+  "fitted_steps": [
+    0,
+    1,
+    2
+  ],
+  "health_per_step": {
+    "0": 97.5,
+    "1": 65.6,
+    "2": 68.8,
+    "3": 33.3
+  },
+  "slope_per_step": -14.37,
+  "intercept": 91.7,
+  "predicted_unsafe_step": 3.59
+}

@@ -29,7 +29,7 @@ from sklearn.linear_model import Ridge
 from sklearn.pipeline import make_pipeline
 from sklearn.model_selection import RepeatedStratifiedKFold, cross_val_predict, cross_val_score, StratifiedKFold, KFold
 from sklearn.metrics import confusion_matrix, mean_absolute_error
-from config import DATA, RESULTS, CLASSES, FEATURES, UNSAFE_HEALTH
+from config import DATA, RESULTS, CLASSES, FEATURES, UNSAFE_HEALTH, TRAIN_EXCLUDE
 from export_c import write_model_h
 
 # Categorical palette, fixed order (one colour + marker per class)
@@ -62,8 +62,11 @@ def models():
 
 
 def main(name):
-    df = pd.read_csv(DATA / f"{name}_features.csv")
-    df = df[df.label.isin(CLASSES)].reset_index(drop=True)
+    full = pd.read_csv(DATA / f"{name}_features.csv")
+    key = full.label + ":" + full.step.astype(str)
+    excl = TRAIN_EXCLUDE if name == "real" else set()      # simulated steps are all visible
+    held = full[key.isin(excl) | (full.label == "test")].reset_index(drop=True)
+    df = full[full.label.isin(CLASSES) & ~key.isin(excl)].reset_index(drop=True)
     X = df[FEATURES].to_numpy()
     y = df.label.map({c: i for i, c in enumerate(CLASSES)}).to_numpy()
     out = RESULTS / name
@@ -129,8 +132,27 @@ def main(name):
                   "flagged_changed": int((zdist(U) > change_thr).sum())}
         print(f"  Unseen faults flagged UNKNOWN: {unseen['flagged_unknown']}/{len(U)}")
 
+    # flicks kept out of training: "test" re-checks of the healthy beam, and
+    # loosening steps below what the sensor can see (config.TRAIN_EXCLUDE)
+    held_out = {}
+    if len(held):
+        H = held[FEATURES].to_numpy()
+        pn = mlp.predict(scaler.transform(H))
+        hz = zdist(H)
+        for (lab, step), g in held.groupby(["label", "step"]):
+            i = g.index.to_numpy()
+            held_out[f"{lab}:{step}"] = {
+                "flicks": len(i),
+                "nn_says": {CLASSES[k]: int((pn[i] == k).sum()) for k in np.unique(pn[i])},
+                "flagged_changed": int((hz[i] > change_thr).sum()),
+                "f1_hz_median": round(float(np.median(H[i, 0])), 3),
+                "damping_median": round(float(np.median(H[i, 1])), 4)}
+            print(f"  Held out {lab}:{step}: {held_out[f'{lab}:{step}']}")
+
     # ---- plots ----
     plot_scatter(df, out)
+    if (full.label == "loose_support").any():
+        plot_support_damping(full, out)
     plot_accuracy(acc, out)
     plot_confusions(cms, out)
     plot_health(health_true, health_cv, df.label[dm].to_numpy(), out)
@@ -138,6 +160,8 @@ def main(name):
     metrics = {"dataset": name, "flicks": len(df), "accuracy": acc,
                "health_mae_points": health_mae, "change_threshold": change_thr,
                "novelty_threshold": novelty_thr, "unseen_test": unseen,
+               "held_out": held_out, "train_exclude": sorted(excl),
+               "flicks_per_class": df.label.value_counts().to_dict(),
                "tree_feature_importance": dict(zip(FEATURES, tree.feature_importances_.round(3).tolist())),
                "healthy_baseline_mean": dict(zip(FEATURES, h_mean.round(5).tolist()))}
     (out / "metrics.json").write_text(json.dumps(metrics, indent=2), encoding="utf-8")
@@ -159,11 +183,37 @@ def plot_scatter(df, out):
     style(ax)
     ax.set_xlabel("Natural frequency f1 (Hz)", color=INK)
     ax.set_ylabel("Damping ratio (%)", color=INK)
-    ax.set_title("Frequency alone mixes up the coin and real damage;\ndamping separates them",
+    ax.set_title("Each condition leaves its own fingerprint:\nfrequency for mass and joints, damping for the support",
                  color=INK, fontsize=11, loc="left")
     ax.legend(frameon=False, fontsize=9, labelcolor=INK)
     fig.tight_layout()
     fig.savefig(out / "features_f1_vs_damping.png")
+    plt.close(fig)
+
+
+def plot_support_damping(full, out):
+    """Damping per clamp-loosening step: the one feature that moves."""
+    d = full[(full.label == "healthy") | (full.label == "loose_support")].copy()
+    d.loc[d.label == "healthy", "step"] = 0
+    steps = sorted(d.step.unique())
+    names = ["Tight" if s == 0 else f"Step {s}" for s in steps]
+    fig, ax = plt.subplots(figsize=(6.0, 3.8), dpi=150)
+    rng = np.random.default_rng(0)
+    for k, s in enumerate(steps):
+        v = d[d.step == s].damping.to_numpy() * 100
+        ax.scatter(k + rng.normal(0, 0.06, len(v)), v, s=18, alpha=0.6, edgecolors="none",
+                   c=COLORS[0] if s == 0 else COLORS[1], zorder=3)
+        ax.plot([k - 0.25, k + 0.25], [np.median(v)] * 2, color=INK, linewidth=1.6, zorder=4)
+    hmax = d[d.step == 0].damping.max() * 100
+    ax.axhline(hmax, color=INK2, linewidth=0.8, linestyle="--")
+    ax.text(-0.4, hmax + 0.03, "highest healthy flick", color=INK2, fontsize=8)
+    style(ax)
+    ax.set_xticks(range(len(steps)), names)
+    ax.set_ylabel("Damping ratio (%)", color=INK)
+    ax.set_title("Loosening the clamp barely moves f1, but damping rises", color=INK,
+                 fontsize=11, loc="left")
+    fig.tight_layout()
+    fig.savefig(out / "support_damping.png")
     plt.close(fig)
 
 

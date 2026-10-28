@@ -18,7 +18,7 @@ import os
 import urllib.request
 from datetime import date
 import pandas as pd
-from config import DATA, RESULTS, UNSAFE_HEALTH
+from config import DATA, RESULTS, UNSAFE_HEALTH, TRAIN_EXCLUDE
 
 SYSTEM = (
     "You are a structural health monitoring engineer. Write a short inspection report "
@@ -43,6 +43,9 @@ def facts(dset, model_set):
                      f"damping {r.damping * 100:.2f} %, health {r.health:.0f} %, "
                      f"model says {r.predicted} (confidence {r.nn_confidence:.2f}), "
                      f"flagged unknown {int(r.unknown)} times")
+    lines.append("Label notes: 'test' = the healthy beam re-checked after the setup was restored "
+                 "(not used for training). Steps kept out of training because they sit inside the "
+                 "healthy spread: " + ", ".join(sorted(TRAIN_EXCLUDE)) + ".")
     lines.append(f"Unsafe threshold: health below {UNSAFE_HEALTH:.0f} %")
     met = RESULTS / model_set / "metrics.json"
     if met.exists():

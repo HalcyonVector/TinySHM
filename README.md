@@ -25,6 +25,11 @@ python pc/compare_methods.py sim      # FFT peak vs interpolated FFT vs zero-cro
 ```
 Results land in `results/sim/` and `results/sim_session/`.
 
+## Real data (recorded 28 Oct 2026)
+The real flicks are in `data/real/`. Results and the commands to rebuild them
+are in [docs/REAL_RESULTS.md](docs/REAL_RESULTS.md): neural net 94 %
+cross-validated accuracy vs 84 % for the frequency-only rule.
+
 **New to the hardware?** Start with [docs/BUILD_GUIDE.md](docs/BUILD_GUIDE.md): building the beam, wiring the sensor, and every lab step in order.
 
 ## Board setup (ALS-SDA-ARMCTXM3-01, from the lab manual)

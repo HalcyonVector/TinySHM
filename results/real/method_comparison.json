@@ -1,0 +1,27 @@
+{
+  "dataset": "real",
+  "flicks": 89,
+  "methods": {
+    "FFT peak bin": {
+      "mean_abs_error_hz": 0.026663280718953904,
+      "max_abs_error_hz": 0.05151169107856024,
+      "mean_abs_error_pct": 0.5889943099104725,
+      "ram_bytes": 8192,
+      "board_time_us": 116856.97752808989
+    },
+    "Interpolated FFT": {
+      "mean_abs_error_hz": 0.009109248263697788,
+      "max_abs_error_hz": 0.0631813360321063,
+      "mean_abs_error_pct": 0.19511730020256218,
+      "ram_bytes": 8192,
+      "board_time_us": 116865.03370786516
+    },
+    "Zero-crossing": {
+      "mean_abs_error_hz": 0.33826386651968016,
+      "max_abs_error_hz": 2.0694336326703096,
+      "mean_abs_error_pct": 7.300031796700365,
+      "ram_bytes": 0,
+      "board_time_us": 4162.932584269663
+    }
+  }
+}
