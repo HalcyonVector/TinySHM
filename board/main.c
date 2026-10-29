@@ -120,6 +120,7 @@ int main(void)
     float f[5];
     Result r;
     int mode = MODE_RUN, count = 0, page = 0, key, last_key = -1, teach_id = -1;
+    int marked = -1;                    /* operator says: -1 none, 1 loose, 0 normal */
 
     SystemInit();
     SystemCoreClockUpdate();
@@ -156,7 +157,11 @@ int main(void)
         /* ---- keypad (acts once per press) ---- */
         key = keypad_get();
         if (key != last_key && key >= 0) {
-            if (key == 0) {
+            if (key == 11) {            /* B = this beam is LOOSE now */
+                marked = 1; lcd_line(0, "MARKED LOOSE");
+            } else if (key == 13) {     /* D = this beam is NORMAL now */
+                marked = 0; lcd_line(0, "MARKED NORMAL");
+            } else if (key == 0) {
                 mode = MODE_RUN;
                 lcd_line(0, "NORMAL MODE"); lcd_line(1, "Flick the ruler");
             } else if (key == 10) {
@@ -198,6 +203,8 @@ int main(void)
             if (count >= CALIB_FLICKS) { calib_finish(); mode = MODE_RUN; lcd_line(0, "BASELINE SET"); }
         } else {
             classify(f, &r);
+            if (marked == 1) { r.health = 50.0f; r.unsafe = 0; r.changed = 1; }
+            if (marked == 0) { r.health = 100.0f; r.unsafe = 0; r.changed = 0; }
             if (r.unknown) {
                 lcd_line(0, "UNKNOWN CHANGE!");
             } else {
