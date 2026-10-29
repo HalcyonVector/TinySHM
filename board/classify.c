@@ -9,6 +9,9 @@
 static float taught_x[MAX_TAUGHT][N_FEAT];
 static unsigned char taught_y[MAX_TAUGHT];
 static int n_taught = 0;
+/* health a taught flick counts for: the keypad teaches damaged conditions, so they lower health */
+#define TAUGHT_DAMAGE 0.5f
+static float taught_dmg[MAX_TAUGHT];
 static int n_new_classes = 0;
 static const char *const TAUGHT_NAME[] = {"TAUGHT_A", "TAUGHT_B", "TAUGHT_C", "TAUGHT_D"};
 
@@ -146,7 +149,11 @@ void classify(const float *raw, Result *r)
         push(dd, KNN_Y[i], d3, l3, 3);
         if (KNN_DAMAGE[i] >= 0.0f) push(dd, i, dmg_d, dmg_i, 3);
     }
-    for (i = 0; i < n_taught; i++) push(dist(xs, taught_x[i]), taught_y[i], d3, l3, 3);
+    for (i = 0; i < n_taught; i++) {
+        dd = dist(xs, taught_x[i]);
+        push(dd, taught_y[i], d3, l3, 3);
+        push(dd, KNN_N + i, dmg_d, dmg_i, 3);
+    }
 
     for (i = 0; i < N_CLASS + 4; i++) votes[i] = 0.0f;
     for (i = 0; i < 3; i++) votes[l3[i]] += 1.0f;
@@ -155,7 +162,8 @@ void classify(const float *raw, Result *r)
     r->knn = best;
     r->novelty = d3[0];
 
-    for (i = 0; i < 3; i++) dmg_v[i] = KNN_DAMAGE[dmg_i[i]];
+    for (i = 0; i < 3; i++)
+        dmg_v[i] = dmg_i[i] < KNN_N ? KNN_DAMAGE[dmg_i[i]] : taught_dmg[dmg_i[i] - KNN_N];
     dmg = (dmg_v[0] + dmg_v[1] + dmg_v[2]) / 3.0f;
     r->health = 100.0f * (1.0f - dmg);
     if (r->health < 0.0f) r->health = 0.0f;
@@ -195,6 +203,7 @@ int teach_add(const float *raw, int class_id)
     if (n_taught >= MAX_TAUGHT) return 0;
     norm_feat(raw, feat);
     scale(feat, taught_x[n_taught]);
+    taught_dmg[n_taught] = TAUGHT_DAMAGE;
     taught_y[n_taught++] = (unsigned char)class_id;
     return 1;
 }
