@@ -152,6 +152,66 @@ def flicks_from_sim(label, step):
         time.sleep(0.3)
         yield simulate.flick(label, step, rng), None, None
 
+# Lab menu (--session): what you set up for each reading, and how it is saved.
+MENU = [
+    ("healthy", 0, "HEALTHY: clamp tight, 3 clips on, no coin"),
+    ("loose_joint", 1, "LOOSE JOINT 1: middle clip off"),
+    ("loose_joint", 2, "LOOSE JOINT 2: middle and one end clip off"),
+    ("loose_support", 1, "LOOSE SUPPORT 1/4 turn"),
+    ("loose_support", 2, "LOOSE SUPPORT 1/2 turn"),
+    ("loose_support", 3, "LOOSE SUPPORT 3/4 turn"),
+    ("test", 0, "UNKNOWN: any other setup you want to check"),
+]
+# With the coin on: the coin alone is the trained ADDED MASS class. The other
+# coin readings are saved as "test" so they never mix into the training classes.
+WEIGHT_MENU = [
+    ("added_mass", 1, "COIN ONLY: coin on ruler B, clamp tight, 3 clips on"),
+    ("test", 1, "COIN + HEALTHY clamp (check the coin alone)"),
+    ("test", 2, "COIN + LOOSE JOINT 1: middle clip off"),
+    ("test", 3, "COIN + LOOSE JOINT 2: middle and one end clip off"),
+    ("test", 4, "COIN + LOOSE SUPPORT 1/4 turn"),
+    ("test", 5, "COIN + LOOSE SUPPORT 1/2 turn"),
+    ("test", 6, "COIN + LOOSE SUPPORT 3/4 turn"),
+]
+
+
+def ask_yes(question):
+    return input(f"{question} (y/n): ").strip().lower().startswith("y")
+
+
+def session(args, folder, log, predictor):
+    """Lab menu: calibrate?, weight?, then pick a reading, flick, see the answer."""
+    ser = None if args.sim else open_serial(args.port, args.baud)
+    try:
+        if ask_yes("\nCalibrate first (press C, 10 flicks)?"):
+            print("    Press C on the keypad, do the 10 calibration flicks, wait for the LCD.")
+            input("    Then press Enter: ")
+        weight = ask_yes("Is the coin on the beam (add weight)?")
+        menu = WEIGHT_MENU if weight else MENU
+        while True:
+            print("\nChoose the reading you are about to flick:")
+            for n, (label, step, what) in enumerate(menu, 1):
+                print(f"  {n}. {what}   [{next_id(folder, label, step)} saved]")
+            print("  q. quit")
+            ans = input("Number: ").strip().lower()
+            if ans == "q":
+                break
+            if not ans.isdigit() or not 1 <= int(ans) <= len(menu):
+                print("    Pick a number from the list.")
+                continue
+            label, step, what = menu[int(ans) - 1]
+            count = int(input("    How many flicks for this reading? [1]: ").strip() or 1)
+            input(f"    Set up: {what}. Wait for 'Flick the ruler', then press Enter: ")
+            if ser is not None:
+                ser.reset_input_buffer()
+                src = flicks_from_port(ser)
+            else:
+                src = flicks_from_sim(label, step)
+            record(src, label, step, count, folder, log, predictor)
+    finally:
+        if ser is not None:
+            ser.close()
+
 
 def main():
     ap = argparse.ArgumentParser()
@@ -164,6 +224,8 @@ def main():
     ap.add_argument("--count", type=int, default=25)
     ap.add_argument("--sim", action="store_true", help="fake flicks, no board needed")
     ap.add_argument("--file", help="import a saved terminal capture instead of reading the port")
+    ap.add_argument("--session", action="store_true",
+                    help="lab menu: calibrate, add weight, pick a reading, flick, see the answer")
     ap.add_argument("--model", default=None, help="model set for live answers (default: real if trained, else sim)")
     args = ap.parse_args()
 
@@ -182,6 +244,9 @@ def main():
 
     if args.plan:
         run_plan(args, folder, log, predictor)
+        return
+    if args.session:
+        session(args, folder, log, predictor)
         return
     if not args.label:
         ap.error("--label is required (or use --plan)")
