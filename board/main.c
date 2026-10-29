@@ -207,7 +207,6 @@ int main(void)
             if (marked == 1) {
                 if (r.health > 50.0f) r.health = 50.0f;
                 r.changed = 1;
-                r.unsafe = r.health < UNSAFE_HEALTH;
             }
             if (r.unknown) {
                 lcd_line(0, "UNKNOWN CHANGE!");
