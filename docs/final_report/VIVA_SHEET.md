@@ -223,3 +223,13 @@ Fs > 2 f_max (Nyquist and Shannon)
 - **What does the LLM do?** It only writes the plain-English inspection report on the laptop (gpt-oss-120b on Groq, Gemini as backup). I give it the results table; it does not classify anything. All decisions come from the tree, kNN and neural network on the board. In my run it got the main story right but overstated confidence on the first two loosening steps, which is why I always check it against the table. The report is in `results/real/inspection_report.md`.
 - **Limitations?** 89 flicks from one beam in one room, flicks by hand, only the first mode, and no temperature study. Next steps: a mechanical exciter, temperature compensation, a second sensor for higher modes, and data over several days.
 - **What would I improve first?** More data on early support loosening, because that is where my system is weakest.
+
+## Part 4. What changed for the demo after the report
+
+The report describes the model trained on the first lab day. For the demo I changed three things. If asked, I say the report is the study, and these are improvements I made after it.
+
+- **Why a new board reads lower.** The lab gave us a different LPC1768. On the same beam it reads about 4.1 to 4.4 Hz instead of 4.74 Hz. I checked the clock (6000 ticks in 60 s, so it is correct), so the cause is something in the board or sensor wiring, not the timing.
+- **Calibration is now the baseline.** I press C and flick 10 times. The board takes the median frequency and damping of those 10 flicks as healthy. Every later flick is compared to that: frequency as a ratio (f1 / f1 healthy) and damping as a difference (damping minus healthy damping). So a healthy beam always reads 1.0 and 0.0, whatever board or day it is. No retraining is needed in the lab.
+- **Only two features now.** The demo model uses just the frequency ratio and the damping difference, so the network is 2-8-4 instead of 5-8-4. Trained on both lab days (131 flicks): kNN 96 %, network 93 %, tree 88 %, health error 4.3 points. The board and the laptop still give identical answers on every flick.
+- **What the health reads.** Healthy about 100. Coin about 85: a beam is meant to carry some load, so the coin lowers health only slightly (in the report I treated it as damage 0). Loose joint 1 about 50, loose joint 2 about 0.
+- **The clamp and the B key.** Loosening the clamp does not change frequency, so the board cannot see it by itself. I press B to mark the beam as loose: health is capped at 50 %, and frequency can still lower it further. D clears the mark and frequency decides again. B and D do not touch the calibration. I am honest that B is an operator mark, not a detection.
