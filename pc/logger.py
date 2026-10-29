@@ -162,17 +162,11 @@ MENU = [
     ("loose_support", 3, "LOOSE SUPPORT 3/4 turn"),
     ("test", 0, "UNKNOWN: any other setup you want to check"),
 ]
-# With the coin on: the coin alone is the trained ADDED MASS class. The other
-# coin readings are saved as "test" so they never mix into the training classes.
-WEIGHT_MENU = [
+# Coin reading first (the trained ADDED MASS class), then the same readings
+# as above with no coin. Each one is saved under its own class.
+MENU = [
     ("added_mass", 1, "COIN ONLY: coin on ruler B, clamp tight, 3 clips on"),
-    ("test", 1, "COIN + HEALTHY clamp (check the coin alone)"),
-    ("test", 2, "COIN + LOOSE JOINT 1: middle clip off"),
-    ("test", 3, "COIN + LOOSE JOINT 2: middle and one end clip off"),
-    ("test", 4, "COIN + LOOSE SUPPORT 1/4 turn"),
-    ("test", 5, "COIN + LOOSE SUPPORT 1/2 turn"),
-    ("test", 6, "COIN + LOOSE SUPPORT 3/4 turn"),
-]
+] + MENU
 
 
 def ask_yes(question):
@@ -204,26 +198,24 @@ def calibration_log(ser, args, n=10):
 
 
 def session(args, folder, log, predictor):
-    """Lab menu: calibrate?, weight?, then pick a reading, flick, see the answer."""
+    """Lab menu: calibrate?, then pick a reading, flick, see the answer."""
     ser = None if args.sim else open_serial(args.port, args.baud)
     try:
         if ask_yes("\nCalibrate first (press C, 10 flicks)?"):
             print("    Press C on the keypad, then flick 10 times. Each calibration flick is shown below.")
             calibration_log(ser, args)
-        weight = ask_yes("Is the coin on the beam (add weight)?")
-        menu = WEIGHT_MENU if weight else MENU
         while True:
             print("\nChoose the reading you are about to flick:")
-            for n, (label, step, what) in enumerate(menu, 1):
+            for n, (label, step, what) in enumerate(MENU, 1):
                 print(f"  {n}. {what}   [{next_id(folder, label, step)} saved]")
             print("  q. quit")
             ans = input("Number: ").strip().lower()
             if ans == "q":
                 break
-            if not ans.isdigit() or not 1 <= int(ans) <= len(menu):
+            if not ans.isdigit() or not 1 <= int(ans) <= len(MENU):
                 print("    Pick a number from the list.")
                 continue
-            label, step, what = menu[int(ans) - 1]
+            label, step, what = MENU[int(ans) - 1]
             count = int(input("    How many flicks for this reading? [1]: ").strip() or 1)
             input(f"    Set up: {what}. Wait for 'Flick the ruler', then press Enter: ")
             if ser is not None:
