@@ -2,49 +2,47 @@
   "dataset": "real",
   "flicks": 101,
   "accuracy": {
-    "Frequency only (no ML)": 0.7961904761904762,
-    "Decision tree": 0.8577142857142858,
-    "kNN (k=3)": 0.8633333333333333,
-    "Neural net (5-8-4)": 0.8353333333333335
+    "Frequency only (no ML)": 0.7803809523809524,
+    "Decision tree": 0.8792380952380953,
+    "kNN (k=3)": 0.9600952380952381,
+    "Neural net (5-8-4)": 0.9308571428571429
   },
   "health_mae_points": {
-    "Linear regression": 25.523680599722258,
-    "kNN regression (k=3)": 11.881188118811881
+    "Linear regression": 29.68521445034518,
+    "kNN regression (k=3)": 4.29042904290429
   },
-  "change_threshold": 6.924278409984707,
-  "novelty_threshold": 2.915978926726564,
+  "change_threshold": 7.156737454979957,
+  "novelty_threshold": 0.32256831424320914,
   "unseen_test": {},
   "held_out": {
     "loose_support:1": {
       "flicks": 13,
       "nn_says": {
-        "healthy": 7,
-        "loose_support": 6
+        "healthy": 6,
+        "loose_support": 7
       },
       "flagged_changed": 0,
-      "f1_hz_median": 4.656,
-      "damping_median": 0.0316
+      "f1_hz_median": 1.0,
+      "damping_median": 0.0047
     },
     "loose_support:2": {
       "flicks": 12,
       "nn_says": {
-        "healthy": 6,
-        "loose_support": 5,
+        "healthy": 11,
         "loose_joint": 1
       },
       "flagged_changed": 0,
-      "f1_hz_median": 4.718,
-      "damping_median": 0.0306
+      "f1_hz_median": 1.004,
+      "damping_median": 0.0021
     },
     "test:0": {
       "flicks": 5,
       "nn_says": {
-        "healthy": 4,
-        "loose_support": 1
+        "healthy": 5
       },
       "flagged_changed": 0,
-      "f1_hz_median": 4.682,
-      "damping_median": 0.0295
+      "f1_hz_median": 0.988,
+      "damping_median": 0.0004
     }
   },
   "train_exclude": [
@@ -58,17 +56,11 @@
     "loose_support": 13
   },
   "tree_feature_importance": {
-    "f1_hz": 0.716,
-    "damping": 0.225,
-    "amp_g": 0.059,
-    "energy_ratio": 0.0,
-    "decay_s": 0.0
+    "f1_hz": 0.427,
+    "damping": 0.573
   },
   "healthy_baseline_mean": {
-    "f1_hz": 4.6636,
-    "damping": 0.02838,
-    "amp_g": 2.95996,
-    "energy_ratio": 0.02548,
-    "decay_s": 3.06081
+    "f1_hz": 0.99844,
+    "damping": -6e-05
   }
 }

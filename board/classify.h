@@ -27,7 +27,7 @@ int  teach_add(const float *feat, int class_id);
 
 /* Self-calibration: learn a new healthy baseline from a few flicks. */
 void calib_start(void);
-int  calib_add(const float *feat);    /* returns flicks collected so far */
+int  calib_add(const float *raw);     /* raw features; returns flicks collected so far */
 void calib_finish(void);
 
 #endif

@@ -2,8 +2,8 @@
 Uses the models saved by train.py (results/<set>/models.pkl)."""
 import pickle
 import numpy as np
-from config import RESULTS, CLASSES, FEATURES, UNSAFE_HEALTH
-from features import extract
+from config import RESULTS, CLASSES, FEATURES, UNSAFE_HEALTH, BASE_F1, BASE_DAMP
+from features import extract, normalize
 import json
 
 
@@ -17,11 +17,13 @@ class Predictor:
         X = m["scaler"].inverse_transform(m["Xs"])
         self.h_std = X[m["y"] == 0].std(0) + 1e-9
         self.change_thr = met["change_threshold"]
+        self.base = (BASE_F1, BASE_DAMP)      # set to the calibration median by the logger
         self.novelty_thr = met["novelty_threshold"]
 
     def __call__(self, adc):
         m = self.m
-        f = np.array(extract(adc))
+        raw = np.array(extract(adc))
+        f = np.array(normalize(raw, *self.base)[:len(FEATURES)])
         xs = m["scaler"].transform(f[None])[0]
         d = np.linalg.norm(m["Xs"] - xs, axis=1)
         near = np.argsort(d, kind="stable")[:3]
@@ -31,7 +33,7 @@ class Predictor:
         change = float(np.sqrt((((f - self.h_mean) / self.h_std) ** 2).mean()))
         proba = m["mlp"].predict_proba(xs[None])[0]
         return {
-            **dict(zip(FEATURES, f.round(5).tolist())),
+            **dict(zip(FEATURES, raw.round(5).tolist())),
             "tree": CLASSES[int(m["tree"].predict(f[None])[0])],
             "nn": CLASSES[int(proba.argmax())], "nn_conf": round(float(proba.max()), 3),
             "knn": CLASSES[int(knn.argmax())],

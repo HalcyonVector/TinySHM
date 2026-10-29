@@ -1,6 +1,6 @@
 """Write the trained models into board/model.h as plain C arrays and ifs."""
 from datetime import datetime
-from config import BOARD, CLASSES, FEATURES
+from config import BOARD, CLASSES, FEATURES, BASE_F1, BASE_DAMP
 
 
 def num(v):
@@ -46,6 +46,8 @@ def write_model_h(scaler, tree, mlp, knn_damage, Xs, y, h_mean, h_std,
     s.append("#ifndef MODEL_H\n#define MODEL_H\n")
     s.append(f"#define N_FEAT {nf}\n#define N_CLASS {nc}\n#define N_HIDDEN {H}")
     s.append(f"#define KNN_N {len(y)}\n")
+    s.append("/* calibration baseline the model was trained against (see features.normalize) */")
+    s.append(f"#define BASE_F1   {BASE_F1}f\n#define BASE_DAMP {BASE_DAMP}f\n")
     s.append("static const char *const CLASS_NAME[N_CLASS] = {"
              + ", ".join(f'"{c.upper()}"' for c in CLASSES) + "};")
     s.append(f"/* feature order: {', '.join(FEATURES)} */\n")

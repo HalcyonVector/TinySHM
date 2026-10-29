@@ -13,8 +13,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
-from config import ROOT, DATA, RESULTS, CLASSES, FEATURES
-from features import extract, load_raw
+from config import ROOT, DATA, RESULTS, CLASSES, FEATURES, BASE_F1, BASE_DAMP
+from features import extract, load_raw, normalize
 
 name = sys.argv[1] if len(sys.argv) > 1 else "sim"
 exe = Path(tempfile.gettempdir()) / ("host_test.exe" if sys.platform == "win32" else "host_test")
@@ -27,11 +27,13 @@ c = pd.read_csv(io.StringIO(subprocess.run([str(exe)] + [str(f) for f in files],
 
 m = pickle.load(open(RESULTS / name / "models.pkl", "rb"))
 P = np.array([extract(load_raw(f)) for f in files])
-Ps = m["scaler"].transform(P)
+# the models work on the normalized features; host_test has no calibration, so the trained baseline applies
+Pn = np.array([normalize(p, BASE_F1, BASE_DAMP)[:len(FEATURES)] for p in P])
+Ps = m["scaler"].transform(Pn)
 knn = KNeighborsClassifier(3).fit(m["Xs"], m["y"])
 lab = m["damage"] >= 0
 reg = KNeighborsRegressor(3).fit(m["Xs"][lab], m["damage"][lab])
-py = {"tree": m["tree"].predict(P), "nn": m["mlp"].predict(Ps), "knn": knn.predict(Ps)}
+py = {"tree": m["tree"].predict(Pn), "nn": m["mlp"].predict(Ps), "knn": knn.predict(Ps)}
 health = np.clip(100 * (1 - reg.predict(Ps)), 0, 100)
 
 ok = True

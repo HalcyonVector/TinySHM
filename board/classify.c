@@ -2,6 +2,8 @@
    which pc/train.py writes. */
 #include <math.h>
 #include "classify.h"
+#include "config.h"
+#include "features.h"
 #include "model.h"
 
 static float taught_x[MAX_TAUGHT][N_FEAT];
@@ -12,8 +14,29 @@ static const char *const TAUGHT_NAME[] = {"TAUGHT_A", "TAUGHT_B", "TAUGHT_C", "T
 
 /* Healthy baseline in RAM: starts as the trained one, self-calibration can replace it */
 static float hb_mean[N_FEAT], hb_std[N_FEAT];
-static float cal_sum[N_FEAT], cal_sq[N_FEAT];
+
+/* Calibration baseline: frequency is divided by base_f1 and damping has base_damp
+   taken away, so the model reads a healthy beam as 1.0 and 0.0. Starts at the trained
+   values; calib_finish() replaces them with this beam's healthy median. */
+static float base_f1 = BASE_F1, base_damp = BASE_DAMP;
+static float cal_f1[CALIB_FLICKS], cal_damp[CALIB_FLICKS];
 static int n_cal = 0;
+
+/* raw feature vector (from extract_features) -> the normalized one the models use */
+static void norm_feat(const float *raw, float *out)
+{
+    out[0] = raw[F_FREQ] / base_f1;
+    out[1] = raw[F_DAMP] - base_damp;
+}
+
+static float median(float *v, int n)
+{
+    int i, j;
+    float t;
+    for (i = 1; i < n; i++)                          /* insertion sort, n is 10 */
+        for (j = i; j > 0 && v[j - 1] > v[j]; j--) { t = v[j]; v[j] = v[j - 1]; v[j - 1] = t; }
+    return (n & 1) ? v[n / 2] : 0.5f * (v[n / 2 - 1] + v[n / 2]);
+}
 
 void classify_init(void)
 {
@@ -23,26 +46,37 @@ void classify_init(void)
 
 void calib_start(void)
 {
-    int i;
-    for (i = 0; i < N_FEAT; i++) { cal_sum[i] = 0.0f; cal_sq[i] = 0.0f; }
     n_cal = 0;
 }
 
-int calib_add(const float *feat)
+int calib_add(const float *raw)
 {
-    int i;
-    for (i = 0; i < N_FEAT; i++) { cal_sum[i] += feat[i]; cal_sq[i] += feat[i] * feat[i]; }
-    return ++n_cal;
+    if (n_cal < CALIB_FLICKS) {
+        cal_f1[n_cal] = raw[F_FREQ];
+        cal_damp[n_cal] = raw[F_DAMP];
+        n_cal++;
+    }
+    return n_cal;
 }
 
 void calib_finish(void)
 {
-    int i;
+    float nf[N_FEAT], sum[N_FEAT] = {0.0f, 0.0f}, sq[N_FEAT] = {0.0f, 0.0f};
+    float raw[5] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+    int i, k;
     float m, v;
     if (n_cal < 2) return;
+    base_f1 = median(cal_f1, n_cal);
+    base_damp = median(cal_damp, n_cal);
+    for (k = 0; k < n_cal; k++) {
+        raw[F_FREQ] = cal_f1[k];
+        raw[F_DAMP] = cal_damp[k];
+        norm_feat(raw, nf);
+        for (i = 0; i < N_FEAT; i++) { sum[i] += nf[i]; sq[i] += nf[i] * nf[i]; }
+    }
     for (i = 0; i < N_FEAT; i++) {
-        m = cal_sum[i] / (float)n_cal;
-        v = cal_sq[i] / (float)n_cal - m * m;
+        m = sum[i] / (float)n_cal;
+        v = sq[i] / (float)n_cal - m * m;
         hb_mean[i] = m;
         v = v > 0.0f ? sqrtf(v) : 0.0f;
         /* a few flicks can under-estimate spread, so never go below half the trained one */
@@ -94,12 +128,13 @@ static void push(float dd, int lab, float *d, int *l, int k)
     d[i] = dd; l[i] = lab;
 }
 
-void classify(const float *feat, Result *r)
+void classify(const float *raw, Result *r)
 {
-    float xs[N_FEAT], d3[3], dd, z, s, votes[N_CLASS + 4];
+    float feat[N_FEAT], xs[N_FEAT], d3[3], dd, z, s, votes[N_CLASS + 4];
     float dmg_d[3], dmg_v[3], dmg;
     int l3[3], dmg_i[3], i, best;
 
+    norm_feat(raw, feat);
     scale(feat, xs);
     r->tree = tree_predict(feat);
     r->nn = nn_predict(xs, &r->nn_conf);
@@ -154,9 +189,11 @@ int teach_new_class(void)
     return N_CLASS + n_new_classes++;
 }
 
-int teach_add(const float *feat, int class_id)
+int teach_add(const float *raw, int class_id)
 {
+    float feat[N_FEAT];
     if (n_taught >= MAX_TAUGHT) return 0;
+    norm_feat(raw, feat);
     scale(feat, taught_x[n_taught]);
     taught_y[n_taught++] = (unsigned char)class_id;
     return 1;

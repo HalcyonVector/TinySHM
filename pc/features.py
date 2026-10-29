@@ -68,3 +68,12 @@ def extract(adc):
 def load_raw(path):
     """A raw flick file is one raw count per line (what logger.py saves)."""
     return np.loadtxt(path, dtype=np.int32)
+
+
+def normalize(f, base_f1, base_damp):
+    """Scale a raw feature vector to the calibration baseline: frequency as a
+    ratio to the healthy frequency, damping as the difference from healthy."""
+    f = list(f)
+    f[0] = f[0] / base_f1
+    f[1] = f[1] - base_damp
+    return f

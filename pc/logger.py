@@ -184,7 +184,7 @@ def calibration_log(ser, args, n=10):
         src = flicks_from_sim("healthy", 0)
     rows = []
     for k, (adc, _, _) in enumerate(src, 1):
-        f = dict(zip(FEATURES, extract(adc)))
+        f = dict(zip(["f1_hz", "damping", "amp_g", "energy_ratio", "decay_s"], extract(adc)))
         rows.append(f)
         print(f"    calib {k}/{n}: f1={f['f1_hz']:.2f} Hz  damping={f['damping']:.4f}  "
               f"amp={f['amp_g']:.2f} g  energy={f['energy_ratio']:.2f}")
@@ -195,6 +195,7 @@ def calibration_log(ser, args, n=10):
     print(f"    baseline from {len(rows)} flicks: f1 median {np.median(f1):.2f} Hz "
           f"(range {f1.min():.2f} to {f1.max():.2f}), damping median {np.median(dm):.4f}")
     input("    Check the LCD says BASELINE SET, then press Enter: ")
+    return float(np.median(f1)), float(np.median(dm))
 
 
 def session(args, folder, log, predictor):
@@ -203,7 +204,9 @@ def session(args, folder, log, predictor):
     try:
         if ask_yes("\nCalibrate first (press C, 10 flicks)?"):
             print("    Press C on the keypad, then flick 10 times. Each calibration flick is shown below.")
-            calibration_log(ser, args)
+            base = calibration_log(ser, args)
+            if predictor is not None:
+                predictor.base = base     # live answers now use this beam's healthy level
         while True:
             print("\nChoose the reading you are about to flick:")
             for n, (label, step, what) in enumerate(MENU, 1):

@@ -19,7 +19,7 @@ ENV_WIN = 25              # envelope window, samples (0.25 s)
 ZC_BAND_G = 0.03          # zero-crossing hysteresis band, g (freq_methods.py)
 
 CLASSES = ["healthy", "loose_support", "loose_joint", "added_mass"]
-FEATURES = ["f1_hz", "damping", "amp_g", "energy_ratio", "decay_s"]
+FEATURES = ["f1_hz", "damping"]
 
 # Damage level used for the health-score regression (0 = perfect, 1 = worst we test).
 # Added mass is deliberately 0: a coin is a change, not damage.
@@ -39,4 +39,9 @@ DAMAGE_LEVEL = {
 # spread, so they are below what this sensor can detect. They are still plotted
 # and checked against the trained model (see train.py "below detection").
 TRAIN_EXCLUDE = {"loose_support:1", "loose_support:2"}
+# Calibration baseline the models are trained against: frequency is divided by
+# BASE_F1 and damping has BASE_DAMP subtracted, so a healthy beam reads 1.0 and 0.0.
+# The board and the logger replace these with the 10-flick calibration median.
+BASE_F1 = 4.739
+BASE_DAMP = 0.0291
 UNSAFE_HEALTH = 40.0      # below this health score the board says UNSAFE
