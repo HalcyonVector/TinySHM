@@ -178,14 +178,38 @@ WEIGHT_MENU = [
 def ask_yes(question):
     return input(f"{question} (y/n): ").strip().lower().startswith("y")
 
+def calibration_log(ser, args, n=10):
+    """Show each calibration flick (not saved): frequency, damping, amplitude.
+    The board does the baseline itself; this shows what it is learning from."""
+    from features import extract
+    from config import FEATURES
+    if ser is not None:
+        ser.reset_input_buffer()
+        src = flicks_from_port(ser)
+    else:
+        src = flicks_from_sim("healthy", 0)
+    rows = []
+    for k, (adc, _, _) in enumerate(src, 1):
+        f = dict(zip(FEATURES, extract(adc)))
+        rows.append(f)
+        print(f"    calib {k}/{n}: f1={f['f1_hz']:.2f} Hz  damping={f['damping']:.4f}  "
+              f"amp={f['amp_g']:.2f} g  energy={f['energy_ratio']:.2f}")
+        if k >= n:
+            break
+    f1 = np.array([r["f1_hz"] for r in rows])
+    dm = np.array([r["damping"] for r in rows])
+    print(f"    baseline from {len(rows)} flicks: f1 median {np.median(f1):.2f} Hz "
+          f"(range {f1.min():.2f} to {f1.max():.2f}), damping median {np.median(dm):.4f}")
+    input("    Check the LCD says BASELINE SET, then press Enter: ")
+
 
 def session(args, folder, log, predictor):
     """Lab menu: calibrate?, weight?, then pick a reading, flick, see the answer."""
     ser = None if args.sim else open_serial(args.port, args.baud)
     try:
         if ask_yes("\nCalibrate first (press C, 10 flicks)?"):
-            print("    Press C on the keypad, do the 10 calibration flicks, wait for the LCD.")
-            input("    Then press Enter: ")
+            print("    Press C on the keypad, then flick 10 times. Each calibration flick is shown below.")
+            calibration_log(ser, args)
         weight = ask_yes("Is the coin on the beam (add weight)?")
         menu = WEIGHT_MENU if weight else MENU
         while True:
