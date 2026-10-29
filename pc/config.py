@@ -31,7 +31,7 @@ DAMAGE_LEVEL = {
     "loose_support:3": 0.75,   # loosest the beam still holds (about 3/4 turn)
     "loose_joint:1": 0.50,   # middle binder clip removed
     "loose_joint:2": 1.00,   # also one end clip removed (1 clip left)
-    "added_mass:1": 0.0,     # Rs 20 + Rs 5 coins taped near the tip
+    "added_mass:1": 0.50,    # Rs 20 + Rs 5 coins taped near the tip (extra load lowers health)
 }
 
 # Recorded, but kept out of training. Lab result (2026-10-28): the first two

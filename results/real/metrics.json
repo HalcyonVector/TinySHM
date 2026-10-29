@@ -8,7 +8,7 @@
     "Neural net (5-8-4)": 0.9308571428571429
   },
   "health_mae_points": {
-    "Linear regression": 29.68521445034518,
+    "Linear regression": 27.656886397963298,
     "kNN regression (k=3)": 4.29042904290429
   },
   "change_threshold": 7.156737454979957,
