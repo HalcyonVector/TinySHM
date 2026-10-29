@@ -159,7 +159,7 @@ int main(void)
         if (key != last_key && key >= 0) {
             if (key == 11) {            /* B = this beam is LOOSE now */
                 marked = 1; lcd_line(0, "MARKED LOOSE");
-            } else if (key == 13) {     /* D = this beam is NORMAL now */
+            } else if (key == 13) {     /* D = this beam is NORMAL now: frequency decides */
                 marked = 0; lcd_line(0, "MARKED NORMAL");
             } else if (key == 0) {
                 mode = MODE_RUN;
@@ -203,8 +203,12 @@ int main(void)
             if (count >= CALIB_FLICKS) { calib_finish(); mode = MODE_RUN; lcd_line(0, "BASELINE SET"); }
         } else {
             classify(f, &r);
-            if (marked == 1) { r.health = 50.0f; r.unsafe = 0; r.changed = 1; }
-            if (marked == 0) { r.health = 100.0f; r.unsafe = 0; r.changed = 0; }
+            /* loose mark caps health at 50%, but the frequency still lowers it further */
+            if (marked == 1) {
+                if (r.health > 50.0f) r.health = 50.0f;
+                r.changed = 1;
+                r.unsafe = r.health < UNSAFE_HEALTH;
+            }
             if (r.unknown) {
                 lcd_line(0, "UNKNOWN CHANGE!");
             } else {
