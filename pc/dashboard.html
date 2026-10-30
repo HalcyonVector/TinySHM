@@ -182,7 +182,7 @@ const INFO={
   loose_support:["Loose support",C.vio,"Table-edge clamp is loose (marked by the operator with key B).","Tighten the clamp, then press D."]};
 const hc=h=>h>=70?C.ok:h>=40?C.warn:C.bad;
 const $=id=>document.getElementById(id);
-let calN=0,hist=[],hf=[],hz=[],prev=null,last=null,t0=Date.now(),shown=0;
+let calN=0,calF=[],calZ=[],hist=[],hf=[],hz=[],prev=null,last=null,t0=Date.now(),shown=0;
 
 // gauge ticks + LEDs
 (()=>{let g="";for(let i=0;i<=40;i++){const a=(135+i*6.75)*Math.PI/180,r1=i%10?95:93,r2=99;
@@ -237,12 +237,19 @@ function logEv(html,cls=""){const d=document.createElement("div");d.className="e
 function chipDelta(el,v,txt,good){el.textContent=txt;const c=good?C.ok:v<0?C.info:C.warn;el.style.color=c;el.style.background=c+"22"}
 
 function show(p){last=p;$("cnt").textContent=p.n;$("last").textContent="last flick "+p.t;
-  const r=p.res;if(!r){calN++;let k=0;p.spec.forEach((m,i)=>{if(i>3&&m>p.spec[k])k=i});if(k<4)k=4;const fp=k/(p.spec.length-1)*p.fmax;
+  const r=p.res;if(!r){calN++;const F=p.feat;calF.push(F.f1);calZ.push(F.damp);
+    const mf=med(calF),mz=med(calZ);
     $("cname").textContent=`Calibrating ${Math.min(calN,10)}/10`;$("cname").style.color=C.info;
     $("cdesc").textContent=calN>=10?"Baseline set on the board. Flick again to see the diagnosis.":`Recording healthy baseline flicks (key C). ${10-calN} more to go, then every flick is diagnosed.`;
-    $("cact").innerHTML="";$("f1").textContent=fp.toFixed(2);$("bf1").textContent="peak of this calibration flick";
+    $("cact").innerHTML=`<span>→</span><span><b>Baseline so far:</b> f₁ ${mf.toFixed(2)} Hz · ζ ${(mz*100).toFixed(2)} % · spread ${Math.min(...calF).toFixed(2)} to ${Math.max(...calF).toFixed(2)} Hz</span>`;
+    $("f1").textContent=F.f1.toFixed(2);$("bf1").textContent=`median so far ${mf.toFixed(2)} Hz (${calF.length} flicks)`;
+    $("z").textContent=(F.damp*100).toFixed(2);$("bz").textContent=`median so far ${(mz*100).toFixed(2)} %`;
+    $("df1").textContent="";$("dz").textContent="";$("df1").style.background="none";$("dz").style.background="none";
     $("band").textContent=`CALIBRATING ${Math.min(calN,10)}/10`;$("band").style.color=C.info;
-    logEv(`<span>${p.t}</span><span>calibration flick ${calN}/10 · f₁ ≈ ${fp.toFixed(2)} Hz</span>`,"sys");drawWave(p);drawSpec(p);return}
+    [...$("leds").children].forEach((l,i)=>{const on=i<Math.round(calN*0.8);l.style.background=on?C.info:"#1a2130";l.style.boxShadow=on?`0 0 10px ${C.info}`:"none"});
+    logEv(`<span class="num" style="color:${C.muted}">${p.t}</span><span class="num" style="color:${C.dim}">C${calN}</span><span><i class="d" style="background:${C.info}"></i>Calibration</span><span class="num" style="color:${C.info}">${F.f1.toFixed(2)} Hz · ζ ${(F.damp*100).toFixed(2)}%</span>`);
+    drawWave(p);drawSpec(p);return}
+  if(calN){hf=calF.slice();hz=calZ.slice();logEv(`<span>${p.t}</span><span style="color:${C.ok}">Baseline set: f₁ ${med(calF).toFixed(2)} Hz · ζ ${(med(calZ)*100).toFixed(2)} % from ${calF.length} flicks</span>`,"sys");calF=[];calZ=[]}
   calN=0;
   const [name,col,desc,act]=INFO[r.knn]||[r.knn,C.muted,"",""];
   if(r.knn=="healthy"&&r.health>=95){hf.push(r.f1);hz.push(r.damp)}

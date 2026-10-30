@@ -22,6 +22,7 @@ from pathlib import Path
 import numpy as np
 
 from config import FS
+from features import extract
 from logger import open_serial, parse_lines
 
 
@@ -70,7 +71,9 @@ def packet(raw, r, n, source):
     keep = fr <= 10
     spec = spec[keep] / (spec[keep].max() or 1)
     step = max(1, len(y) // 600)
+    ft = [float(v) for v in extract(np.asarray(raw))[:3]]
     return {"n": n, "t": time.strftime("%H:%M:%S"), "source": source, "res": r,
+            "feat": {"f1": ft[0], "damp": ft[1], "amp": ft[2]},
             "wave": [round(v, 1) for v in y[::step]], "dur": len(y) / FS,
             "spec": [round(float(v), 4) for v in spec], "fmax": float(fr[keep][-1])}
 
