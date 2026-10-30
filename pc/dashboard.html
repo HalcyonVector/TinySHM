@@ -47,7 +47,9 @@ header{display:flex;align-items:center;gap:16px}
 .c-gauge{grid-column:span 4}.c-cond{grid-column:span 5}.c-feat{grid-column:span 3;overflow-y:auto}
 .c-cond{overflow-y:auto}
 ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:#2a3446;border-radius:6px}::-webkit-scrollbar-track{background:transparent}
-.c-wave{grid-column:span 8}.c-spec{grid-column:span 4}.c-hist{grid-column:span 8}.c-log{grid-column:span 4}
+.c-wave{grid-column:span 8}.c-spec{grid-column:span 4}.c-hist{grid-column:span 5}.c-cal{grid-column:span 3;overflow-y:auto}
+.calsum{display:flex;gap:14px;margin-top:8px;font-size:12px;color:var(--muted)}.calsum b{display:block;font-size:18px;color:var(--text)}
+.calt{width:100%;border-collapse:collapse;margin-top:8px;font-size:12px}.calt td{padding:3px 4px;border-bottom:1px solid var(--line)}.calt td:first-child{color:var(--dim)}.calt .bb{height:5px;border-radius:3px;background:var(--info);box-shadow:0 0 6px var(--info)}.c-log{grid-column:span 4}
 /* gauge */
 .gwrap{flex:1;display:flex;align-items:center;justify-content:center;gap:22px;min-height:0;padding-top:6px}
 .gauge{position:relative;height:100%;max-height:230px;aspect-ratio:1}
@@ -162,6 +164,9 @@ kbd{font-family:inherit;font-weight:700;font-size:11px;padding:2px 7px;border-ra
     <section class="card c-wave"><div class="ttl"><i></i>Free vibration response<span class="r">acceleration vs time · 100 Hz sampling · 1024 samples</span></div><canvas id="wave"></canvas></section>
     <section class="card c-spec"><div class="ttl"><i></i>Frequency spectrum<span class="r">FFT, Hann window</span></div><canvas id="spec"></canvas></section>
     <section class="card c-hist"><div class="ttl"><i></i>Health timeline<span class="r">every flick this session</span></div><canvas id="hist"></canvas></section>
+    <section class="card c-cal"><div class="ttl"><i></i>Calibration<span class="r" id="calst">press C</span></div>
+      <div class="calsum"><div>Baseline f₁<b class="num" id="cbf">--</b></div><div>Baseline ζ<b class="num" id="cbz">--</b></div><div>Spread<b class="num" id="cbs">--</b></div></div>
+      <table class="calt num" id="calt"></table></section>
     <section class="card c-log"><div class="ttl"><i></i>Event log</div><div class="log" id="log"></div></section>
   </div>
 
@@ -182,7 +187,7 @@ const INFO={
   loose_support:["Loose support",C.vio,"Table-edge clamp is loose (marked by the operator with key B).","Tighten the clamp, then press D."]};
 const hc=h=>h>=70?C.ok:h>=40?C.warn:C.bad;
 const $=id=>document.getElementById(id);
-let calN=0,calF=[],calZ=[],hist=[],hf=[],hz=[],prev=null,last=null,t0=Date.now(),shown=0;
+let calDone=null,calN=0,calF=[],calZ=[],hist=[],hf=[],hz=[],prev=null,last=null,t0=Date.now(),shown=0;
 
 // gauge ticks + LEDs
 (()=>{let g="";for(let i=0;i<=40;i++){const a=(135+i*6.75)*Math.PI/180,r1=i%10?95:93,r2=99;
@@ -232,13 +237,18 @@ function drawHist(){const [x,w,h]=setup($("hist"));const L=40,R=w-10,T=10,B=h-22
   hist.forEach((e,i)=>{const c=(INFO[e.c]||[0,C.muted])[1];x.save();x.shadowColor=c;x.shadowBlur=10;x.fillStyle=c;x.beginPath();x.arc(X(i),Y(e.h),4.5,0,7);x.fill();x.restore();
     if(hist.length<=24||i%2==0){x.fillStyle=C.dim;x.textAlign="center";x.fillText("#"+e.n,X(i),B+15)}})}
 
+function calCard(){const t=$("calt");let h="";const mn=Math.min(...calF),mx=Math.max(...calF);
+  for(let i=0;i<10;i++){const f=calF[i],z=calZ[i];h+=f==null?`<tr><td>C${i+1}</td><td style="color:var(--dim)">waiting</td><td></td><td style="width:35%"></td></tr>`:
+    `<tr><td>C${i+1}</td><td>${f.toFixed(2)} Hz</td><td>ζ ${(z*100).toFixed(2)}%</td><td style="width:35%"><div class="bb" style="width:${mx>mn?20+80*(f-mn)/(mx-mn):60}%"></div></td></tr>`}
+  t.innerHTML=h;if(calF.length){$("cbf").textContent=med(calF).toFixed(2)+" Hz";$("cbz").textContent=(med(calZ)*100).toFixed(2)+" %";$("cbs").textContent="±"+((mx-mn)/2).toFixed(2)}
+  $("calst").textContent=calF.length>=10?"baseline set":calF.length?`${calF.length}/10 recording`:"press C"}
 const med=a=>{if(!a.length)return null;const s=a.slice(-10).sort((p,q)=>p-q),m=s.length>>1;return s.length%2?s[m]:(s[m-1]+s[m])/2};
 function logEv(html,cls=""){const d=document.createElement("div");d.className="ev "+cls;d.innerHTML=html;$("log").prepend(d)}
 function chipDelta(el,v,txt,good){el.textContent=txt;const c=good?C.ok:v<0?C.info:C.warn;el.style.color=c;el.style.background=c+"22"}
 
 function show(p){last=p;$("cnt").textContent=p.n;$("last").textContent="last flick "+p.t;
   const r=p.res;if(!r){calN++;const F=p.feat;calF.push(F.f1);calZ.push(F.damp);
-    const mf=med(calF),mz=med(calZ);
+    const mf=med(calF),mz=med(calZ);$("calst").style.color="";calCard();
     $("cname").textContent=`Calibrating ${Math.min(calN,10)}/10`;$("cname").style.color=C.info;
     $("cdesc").textContent=calN>=10?"Baseline set on the board. Flick again to see the diagnosis.":`Recording healthy baseline flicks (key C). ${10-calN} more to go, then every flick is diagnosed.`;
     $("cact").innerHTML=`<span>→</span><span><b>Baseline so far:</b> f₁ ${mf.toFixed(2)} Hz · ζ ${(mz*100).toFixed(2)} % · spread ${Math.min(...calF).toFixed(2)} to ${Math.max(...calF).toFixed(2)} Hz</span>`;
@@ -249,7 +259,7 @@ function show(p){last=p;$("cnt").textContent=p.n;$("last").textContent="last fli
     [...$("leds").children].forEach((l,i)=>{const on=i<Math.round(calN*0.8);l.style.background=on?C.info:"#1a2130";l.style.boxShadow=on?`0 0 10px ${C.info}`:"none"});
     logEv(`<span class="num" style="color:${C.muted}">${p.t}</span><span class="num" style="color:${C.dim}">C${calN}</span><span><i class="d" style="background:${C.info}"></i>Calibration</span><span class="num" style="color:${C.info}">${F.f1.toFixed(2)} Hz · ζ ${(F.damp*100).toFixed(2)}%</span>`);
     drawWave(p);drawSpec(p);return}
-  if(calN){hf=calF.slice();hz=calZ.slice();logEv(`<span>${p.t}</span><span style="color:${C.ok}">Baseline set: f₁ ${med(calF).toFixed(2)} Hz · ζ ${(med(calZ)*100).toFixed(2)} % from ${calF.length} flicks</span>`,"sys");calF=[];calZ=[]}
+  if(calN){hf=calF.slice();hz=calZ.slice();logEv(`<span>${p.t}</span><span style="color:${C.ok}">Baseline set: f₁ ${med(calF).toFixed(2)} Hz · ζ ${(med(calZ)*100).toFixed(2)} % from ${calF.length} flicks</span>`,"sys");calDone=[calF.slice(),calZ.slice()];$("calst").textContent="baseline set ✓";$("calst").style.color=C.ok;calF=[];calZ=[]}
   calN=0;
   const [name,col,desc,act]=INFO[r.knn]||[r.knn,C.muted,"",""];
   if(r.knn=="healthy"&&r.health>=95){hf.push(r.f1);hz.push(r.damp)}
