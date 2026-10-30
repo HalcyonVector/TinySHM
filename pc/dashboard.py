@@ -22,7 +22,7 @@ import tkinter as tk
 import numpy as np
 
 from config import FS
-from logger import open_serial, parse_lines
+from dashboard_web import board_reader, demo_reader
 
 BG, CARD, EDGE, GRID = "#03060b", "#07101a", "#0e3a52", "#0c2131"
 TEXT, MUTED, DIM = "#d6f6ff", "#4fa3c7", "#24506a"
@@ -62,39 +62,6 @@ INFO = {
 
 def health_color(h):
     return GREEN if h >= 70 else AMBER if h >= 40 else RED
-
-
-def parse_res(res):
-    """RES,nn,conf,tree,knn,health,mHz,damp*1e5,changed,unknown,unsafe"""
-    p = res.split(",")
-    if len(p) < 10:
-        return None
-    return {"nn": p[0], "conf": int(p[1]), "tree": p[2], "knn": p[3],
-            "health": int(p[4]), "f1": int(p[5]) / 1000, "damp": int(p[6]) / 1e5,
-            "changed": p[7] == "1", "unknown": p[8] == "1", "unsafe": p[9] == "1"}
-
-
-def board_reader(port, baud, q):
-    ser = open_serial(port, baud)
-    for raw, res, _ in parse_lines(ser.readline().decode(errors="ignore") for _ in iter(int, 1)):
-        q.put((raw, parse_res(res) if res else None))
-
-
-def demo_reader(q):
-    cases = [("healthy", 100, 4.30, 0.029), ("added_mass", 85, 3.33, 0.027),
-             ("loose_joint", 50, 4.08, 0.036), ("loose_joint", 0, 3.90, 0.045),
-             ("healthy", 100, 4.31, 0.029)]
-    while True:
-        for cls, h, f, z in cases:
-            for _ in range(3):
-                time.sleep(2.5)
-                f1 = f + random.uniform(-0.03, 0.03)
-                w = 2 * math.pi * f1
-                raw = [int(2048 + 900 * math.exp(-z * w * i / FS) * math.sin(w * i / FS)
-                           + random.gauss(0, 8)) for i in range(1024)]
-                q.put((raw, {"nn": cls, "conf": random.randint(88, 99), "tree": cls, "knn": cls,
-                             "health": h, "f1": f1, "damp": z, "changed": False,
-                             "unknown": False, "unsafe": h < 40}))
 
 
 class Card(tk.Frame):
