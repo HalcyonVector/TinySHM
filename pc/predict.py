@@ -2,7 +2,7 @@
 Uses the models saved by train.py (results/<set>/models.pkl)."""
 import pickle
 import numpy as np
-from config import RESULTS, CLASSES, FEATURES, UNSAFE_HEALTH, BASE_F1, BASE_DAMP
+from config import RESULTS, CLASSES, FEATURES, UNSAFE_HEALTH, BASE
 from features import extract, normalize
 import json
 
@@ -17,7 +17,7 @@ class Predictor:
         X = m["scaler"].inverse_transform(m["Xs"])
         self.h_std = X[m["y"] == 0].std(0) + 1e-9
         self.change_thr = met["change_threshold"]
-        self.base = (BASE_F1, BASE_DAMP)      # set to the calibration median by the logger
+        self.base = BASE      # set to the calibration median by the logger
         self.novelty_thr = met["novelty_threshold"]
 
     def __call__(self, adc):

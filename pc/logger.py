@@ -192,10 +192,11 @@ def calibration_log(ser, args, n=10):
             break
     f1 = np.array([r["f1_hz"] for r in rows])
     dm = np.array([r["damping"] for r in rows])
+    keys = ["f1_hz", "damping", "amp_g", "energy_ratio", "decay_s"]
     print(f"    baseline from {len(rows)} flicks: f1 median {np.median(f1):.2f} Hz "
           f"(range {f1.min():.2f} to {f1.max():.2f}), damping median {np.median(dm):.4f}")
     input("    Check the LCD says BASELINE SET, then press Enter: ")
-    return float(np.median(f1)), float(np.median(dm))
+    return tuple(float(np.median([r[k] for r in rows])) for k in keys)
 
 
 def session(args, folder, log, predictor):

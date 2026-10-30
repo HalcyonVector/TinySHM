@@ -13,7 +13,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
-from config import ROOT, DATA, RESULTS, CLASSES, FEATURES, BASE_F1, BASE_DAMP
+from config import ROOT, DATA, RESULTS, CLASSES, FEATURES, BASE
 from features import extract, load_raw, normalize
 
 name = sys.argv[1] if len(sys.argv) > 1 else "sim"
@@ -28,7 +28,7 @@ c = pd.read_csv(io.StringIO(subprocess.run([str(exe)] + [str(f) for f in files],
 m = pickle.load(open(RESULTS / name / "models.pkl", "rb"))
 P = np.array([extract(load_raw(f)) for f in files])
 # the models work on the normalized features; host_test has no calibration, so the trained baseline applies
-Pn = np.array([normalize(p, BASE_F1, BASE_DAMP)[:len(FEATURES)] for p in P])
+Pn = np.array([normalize(p, *BASE)[:len(FEATURES)] for p in P])
 Ps = m["scaler"].transform(Pn)
 knn = KNeighborsClassifier(3).fit(m["Xs"], m["y"])
 lab = m["damage"] >= 0

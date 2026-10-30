@@ -18,18 +18,21 @@ static const char *const TAUGHT_NAME[] = {"TAUGHT_A", "TAUGHT_B", "TAUGHT_C", "T
 /* Healthy baseline in RAM: starts as the trained one, self-calibration can replace it */
 static float hb_mean[N_FEAT], hb_std[N_FEAT];
 
-/* Calibration baseline: frequency is divided by base_f1 and damping has base_damp
-   taken away, so the model reads a healthy beam as 1.0 and 0.0. Starts at the trained
-   values; calib_finish() replaces them with this beam's healthy median. */
-static float base_f1 = BASE_F1, base_damp = BASE_DAMP;
-static float cal_f1[CALIB_FLICKS], cal_damp[CALIB_FLICKS];
+/* Calibration baseline: frequency, amplitude and decay are divided by it, damping and
+   energy ratio have it taken away, so the model reads a healthy beam as 1, 0, 1, 0, 1.
+   Starts at the trained values; calib_finish() replaces it with this beam's healthy median. */
+static float base[5];
+static float cal[5][CALIB_FLICKS];
 static int n_cal = 0;
 
 /* raw feature vector (from extract_features) -> the normalized one the models use */
 static void norm_feat(const float *raw, float *out)
 {
-    out[0] = raw[F_FREQ] / base_f1;
-    out[1] = raw[F_DAMP] - base_damp;
+    out[F_FREQ] = raw[F_FREQ] / base[F_FREQ];
+    out[F_DAMP] = raw[F_DAMP] - base[F_DAMP];
+    out[F_AMP] = raw[F_AMP] / base[F_AMP];
+    out[F_ENERGY] = raw[F_ENERGY] - base[F_ENERGY];
+    out[F_DECAY] = raw[F_DECAY] / base[F_DECAY];
 }
 
 static float median(float *v, int n)
@@ -45,6 +48,7 @@ void classify_init(void)
 {
     int i;
     for (i = 0; i < N_FEAT; i++) { hb_mean[i] = HB_MEAN[i]; hb_std[i] = HB_STD[i]; }
+    for (i = 0; i < 5; i++) base[i] = BASE_INIT[i];
 }
 
 void calib_start(void)
@@ -55,8 +59,8 @@ void calib_start(void)
 int calib_add(const float *raw)
 {
     if (n_cal < CALIB_FLICKS) {
-        cal_f1[n_cal] = raw[F_FREQ];
-        cal_damp[n_cal] = raw[F_DAMP];
+        int i;
+        for (i = 0; i < 5; i++) cal[i][n_cal] = raw[i];
         n_cal++;
     }
     return n_cal;
@@ -64,16 +68,17 @@ int calib_add(const float *raw)
 
 void calib_finish(void)
 {
-    float nf[N_FEAT], sum[N_FEAT] = {0.0f, 0.0f}, sq[N_FEAT] = {0.0f, 0.0f};
-    float raw[5] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+    float nf[N_FEAT], sum[N_FEAT] = {0.0f}, sq[N_FEAT] = {0.0f};
+    float raw[5], sorted[CALIB_FLICKS];
     int i, k;
     float m, v;
     if (n_cal < 2) return;
-    base_f1 = median(cal_f1, n_cal);
-    base_damp = median(cal_damp, n_cal);
+    for (i = 0; i < 5; i++) {
+        for (k = 0; k < n_cal; k++) sorted[k] = cal[i][k];   /* median() sorts in place */
+        base[i] = median(sorted, n_cal);
+    }
     for (k = 0; k < n_cal; k++) {
-        raw[F_FREQ] = cal_f1[k];
-        raw[F_DAMP] = cal_damp[k];
+        for (i = 0; i < 5; i++) raw[i] = cal[i][k];
         norm_feat(raw, nf);
         for (i = 0; i < N_FEAT; i++) { sum[i] += nf[i]; sq[i] += nf[i] * nf[i]; }
     }

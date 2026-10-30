@@ -3,23 +3,23 @@
   "flicks": 101,
   "accuracy": {
     "Frequency only (no ML)": 0.7803809523809524,
-    "Decision tree": 0.8792380952380953,
-    "kNN (k=3)": 0.9600952380952381,
-    "Neural net (5-8-4)": 0.9308571428571429
+    "Decision tree": 0.8855238095238094,
+    "kNN (k=3)": 0.8572380952380954,
+    "Neural net (5-8-4)": 0.8731428571428572
   },
   "health_mae_points": {
-    "Linear regression": 29.088000629791637,
-    "kNN regression (k=3)": 4.29042904290429
+    "Linear regression": 24.8494849315252,
+    "kNN regression (k=3)": 10.148514851485148
   },
-  "change_threshold": 7.156737454979957,
-  "novelty_threshold": 0.32256831424320914,
+  "change_threshold": 7.443613032315239,
+  "novelty_threshold": 2.6613406558373973,
   "unseen_test": {},
   "held_out": {
     "loose_support:1": {
       "flicks": 13,
       "nn_says": {
-        "healthy": 6,
-        "loose_support": 7
+        "healthy": 8,
+        "loose_support": 5
       },
       "flagged_changed": 0,
       "f1_hz_median": 1.0,
@@ -28,7 +28,8 @@
     "loose_support:2": {
       "flicks": 12,
       "nn_says": {
-        "healthy": 11,
+        "healthy": 9,
+        "loose_support": 2,
         "loose_joint": 1
       },
       "flagged_changed": 0,
@@ -56,11 +57,17 @@
     "loose_support": 13
   },
   "tree_feature_importance": {
-    "f1_hz": 0.427,
-    "damping": 0.573
+    "f1_hz": 0.4,
+    "damping": 0.554,
+    "amp_g": 0.0,
+    "energy_ratio": 0.046,
+    "decay_s": 0.0
   },
   "healthy_baseline_mean": {
     "f1_hz": 0.99844,
-    "damping": -6e-05
+    "damping": -6e-05,
+    "amp_g": 1.03079,
+    "energy_ratio": 0.0214,
+    "decay_s": 1.04984
   }
 }

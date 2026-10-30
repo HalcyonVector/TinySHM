@@ -70,10 +70,14 @@ def load_raw(path):
     return np.loadtxt(path, dtype=np.int32)
 
 
-def normalize(f, base_f1, base_damp):
-    """Scale a raw feature vector to the calibration baseline: frequency as a
-    ratio to the healthy frequency, damping as the difference from healthy."""
+def normalize(f, base_f1, base_damp, base_amp, base_energy, base_decay):
+    """Scale a raw feature vector to the calibration baseline: frequency,
+    amplitude and decay time as ratios to the healthy values, damping and
+    energy ratio as differences from healthy."""
     f = list(f)
     f[0] = f[0] / base_f1
     f[1] = f[1] - base_damp
+    f[2] = f[2] / base_amp
+    f[3] = f[3] - base_energy
+    f[4] = f[4] / base_decay
     return f

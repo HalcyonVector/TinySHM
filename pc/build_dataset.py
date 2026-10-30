@@ -25,7 +25,7 @@ def session_baselines(files, days):
     for p in files:
         if p.stem.split("__")[0] == "healthy":
             raw.setdefault(days.get(p.name, "?"), []).append(extract(load_raw(p)))
-    return {d: (statistics.median(f[0] for f in v), statistics.median(f[1] for f in v))
+    return {d: tuple(statistics.median(f[i] for f in v) for i in range(5))
             for d, v in raw.items()}
 
 
