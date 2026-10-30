@@ -79,8 +79,8 @@ These are my own notes for the viva. Reference numbers [1] to [15] match our pap
 
 ### My specific fault and my signal processing
 
-**[11] Huang et al., 2022, Elsevier (Mech. Syst. Signal Process.)**
-- Reviews every way of detecting loose bolts and fasteners. The key point for me: looseness changes stiffness and also adds energy loss through friction at the contact.
+**[11] Gong et al., 2022, Springer (Friction)**
+- Reviews research on why threaded fasteners loosen: slippage and friction at the thread and bearing surfaces. The key point for me: a loosening joint loses stiffness and loses energy through friction at the contact.
 - How I used it: it explains why loosening the clamp did not change frequency but raised damping by 18 %.
 
 **[12] Belega and Petri, 2021, IEEE (I2MTC)**
