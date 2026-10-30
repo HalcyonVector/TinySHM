@@ -31,7 +31,7 @@ def parse_res(res):
     p = res.split(",")
     if len(p) < 10:
         return None
-    return {"nn": p[0], "conf": int(p[1]), "tree": p[2], "knn": p[3],
+    return {"nn": p[0].lower(), "conf": int(p[1]), "tree": p[2].lower(), "knn": p[3].lower(),
             "health": int(p[4]), "f1": int(p[5]) / 1000, "damp": int(p[6]) / 1e5,
             "changed": p[7] == "1", "unknown": p[8] == "1", "unsafe": p[9] == "1"}
 
