@@ -14,7 +14,7 @@
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
 body{background:var(--bg);color:var(--text);font-family:"Segoe UI Variable Display","Segoe UI",system-ui,sans-serif;
-  overflow:hidden;-webkit-font-smoothing:antialiased}
+  overflow-x:hidden;overflow-y:auto;-webkit-font-smoothing:antialiased}
 body:before{content:"";position:fixed;inset:-20%;z-index:-2;
   background:radial-gradient(40% 35% at 15% 10%,rgba(76,201,255,.13),transparent 70%),
              radial-gradient(35% 30% at 85% 15%,rgba(167,139,250,.10),transparent 70%),
@@ -23,7 +23,7 @@ body:after{content:"";position:fixed;inset:0;z-index:-1;opacity:.35;
   background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
   background-size:48px 48px;mask-image:radial-gradient(ellipse at center,#000 30%,transparent 80%)}
 .num{font-family:"Cascadia Code","Cascadia Mono",Consolas,ui-monospace,monospace;font-variant-numeric:tabular-nums}
-.app{height:100vh;display:grid;grid-template-rows:auto 1fr auto;padding:18px 22px 12px;gap:14px}
+.app{height:max(100vh,900px);display:grid;grid-template-rows:auto 1fr auto;padding:18px 22px 12px;gap:14px}
 header{display:flex;align-items:center;gap:16px}
 .logo{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;
   background:linear-gradient(135deg,#4cc9ff,#a78bfa);box-shadow:0 0 24px rgba(76,201,255,.35)}
@@ -44,7 +44,9 @@ header{display:flex;align-items:center;gap:16px}
 .ttl{display:flex;align-items:center;gap:10px;font-size:11px;font-weight:600;letter-spacing:1.6px;text-transform:uppercase;color:var(--muted)}
 .ttl i{width:6px;height:6px;border-radius:2px;background:var(--accent);box-shadow:0 0 10px var(--accent)}
 .ttl .r{margin-left:auto;letter-spacing:.3px;text-transform:none;font-weight:500;color:var(--dim)}
-.c-gauge{grid-column:span 4}.c-cond{grid-column:span 5}.c-feat{grid-column:span 3}
+.c-gauge{grid-column:span 4}.c-cond{grid-column:span 5}.c-feat{grid-column:span 3;overflow-y:auto}
+.c-cond{overflow-y:auto}
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:#2a3446;border-radius:6px}::-webkit-scrollbar-track{background:transparent}
 .c-wave{grid-column:span 8}.c-spec{grid-column:span 4}.c-hist{grid-column:span 8}.c-log{grid-column:span 4}
 /* gauge */
 .gwrap{flex:1;display:flex;align-items:center;justify-content:center;gap:22px;min-height:0;padding-top:6px}
