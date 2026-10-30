@@ -24,10 +24,23 @@ import numpy as np
 from config import FS
 from logger import open_serial, parse_lines
 
-BG, CARD, EDGE, GRID = "#0d1117", "#161b22", "#30363d", "#21262d"
-TEXT, MUTED, DIM = "#e6edf3", "#8b949e", "#484f58"
-GREEN, AMBER, RED, BLUE, PURPLE = "#3fb950", "#d29922", "#f85149", "#58a6ff", "#bc8cff"
-FONT = "Segoe UI"
+BG, CARD, EDGE, GRID = "#03060b", "#07101a", "#0e3a52", "#0c2131"
+TEXT, MUTED, DIM = "#d6f6ff", "#4fa3c7", "#24506a"
+GREEN, AMBER, RED, BLUE, PURPLE = "#00ffa3", "#ffb300", "#ff2e63", "#00e5ff", "#c77dff"
+FONT, MONO = "Bahnschrift", "Consolas"
+
+
+def mix(c1, c2, t):
+    """Blend two #rrggbb colours (t=0 gives c1); used for neon glow halos."""
+    a = [int(c1[i:i + 2], 16) for i in (1, 3, 5)]
+    b = [int(c2[i:i + 2], 16) for i in (1, 3, 5)]
+    return "#" + "".join(f"{round(x + (y - x) * t):02x}" for x, y in zip(a, b))
+
+
+def glow_line(c, pts, col, width=1, **kw):
+    for extra, t in ((6, 0.85), (3, 0.6)):
+        c.create_line(*pts, fill=mix(col, CARD, t), width=width + extra, **kw)
+    c.create_line(*pts, fill=col, width=width, **kw)
 
 INFO = {
     "healthy": ("HEALTHY", GREEN,
@@ -87,8 +100,12 @@ def demo_reader(q):
 class Card(tk.Frame):
     def __init__(self, parent, title):
         super().__init__(parent, bg=CARD, highlightbackground=EDGE, highlightthickness=1)
-        tk.Label(self, text=title.upper(), fg=MUTED, bg=CARD,
-                 font=(FONT, 9, "bold")).pack(anchor="w", padx=14, pady=(10, 2))
+        bar = tk.Frame(self, bg=CARD)
+        bar.pack(fill="x", padx=12, pady=(8, 2))
+        tk.Frame(bar, bg=BLUE, width=3, height=14).pack(side="left", padx=(0, 8))
+        tk.Label(bar, text=" ".join(title.upper()), fg=BLUE, bg=CARD,
+                 font=(FONT, 9, "bold")).pack(side="left")
+        tk.Frame(bar, bg=EDGE, height=1).pack(side="left", fill="x", expand=True, padx=(10, 0))
 
 
 class Dashboard:
@@ -96,18 +113,21 @@ class Dashboard:
         self.root, self.q, self.source = root, q, source
         self.hist, self.events, self.healthy_f1, self.healthy_z = [], [], [], []
         self.raw, self.r, self.count = None, None, 0
+        self.shown, self.phase = 0.0, 0.0
         root.title("TinySHM live dashboard")
         root.configure(bg=BG)
-        root.geometry("1400x860")
+        root.geometry("1440x900")
         root.minsize(1100, 720)
 
         # header
         head = tk.Frame(root, bg=BG)
         head.pack(fill="x", padx=18, pady=(14, 6))
-        tk.Label(head, text="TinySHM", fg=TEXT, bg=BG, font=(FONT, 22, "bold")).pack(side="left")
-        tk.Label(head, text="   Vibration-based structural health monitor  |  LPC1768 + MPU6050  |  on-board ML",
+        self.dot = tk.Canvas(head, width=18, height=18, bg=BG, highlightthickness=0)
+        self.dot.pack(side="left", padx=(0, 8), pady=(6, 0))
+        tk.Label(head, text="T I N Y S H M", fg=BLUE, bg=BG, font=(FONT, 22, "bold")).pack(side="left")
+        tk.Label(head, text="   //  STRUCTURAL INTEGRITY MONITOR   [ LPC1768 \u00b7 MPU6050 \u00b7 EDGE ML ]",
                  fg=MUTED, bg=BG, font=(FONT, 11)).pack(side="left", pady=(8, 0))
-        self.clock = tk.Label(head, text="", fg=MUTED, bg=BG, font=(FONT, 11))
+        self.clock = tk.Label(head, text="", fg=BLUE, bg=BG, font=(MONO, 12))
         self.clock.pack(side="right", padx=(10, 0))
         self.pill = tk.Label(head, text=("  DEMO  " if source == "demo" else f"  LIVE  {source}  "),
                              fg=BG, bg=AMBER if source == "demo" else GREEN, font=(FONT, 10, "bold"))
@@ -117,14 +137,14 @@ class Dashboard:
         body.pack(fill="both", expand=True, padx=12)
         for c, w in enumerate((3, 4, 3)):
             body.columnconfigure(c, weight=w, uniform="col")
-        body.rowconfigure(0, weight=6)
+        body.rowconfigure(0, weight=8, minsize=340)
         body.rowconfigure(1, weight=4)
         body.rowconfigure(2, weight=4)
 
         # row 0: gauge | condition + models | metrics
         g = Card(body, "Structural health")
         g.grid(row=0, column=0, sticky="nsew", padx=6, pady=6)
-        self.gauge = tk.Canvas(g, bg=CARD, highlightthickness=0, height=150)
+        self.gauge = tk.Canvas(g, bg=CARD, highlightthickness=0, height=170)
         self.gauge.pack(fill="both", expand=True, padx=8)
         self.leds = tk.Canvas(g, bg=CARD, highlightthickness=0, height=40)
         self.leds.pack(fill="x", padx=8)
@@ -169,7 +189,7 @@ class Dashboard:
             tk.Label(row, text=name, fg=MUTED, bg=CARD, font=(FONT, 10)).pack(anchor="w")
             line = tk.Frame(row, bg=CARD)
             line.pack(fill="x")
-            big = tk.Label(line, text="--", fg=TEXT, bg=CARD, font=(FONT, 20, "bold"))
+            big = tk.Label(line, text="--", fg=TEXT, bg=CARD, font=(MONO, 22, "bold"))
             big.pack(side="left")
             delta = tk.Label(line, text="", fg=MUTED, bg=CARD, font=(FONT, 11, "bold"))
             delta.pack(side="left", padx=10, pady=(8, 0))
@@ -194,7 +214,7 @@ class Dashboard:
         self.trend.pack(fill="both", expand=True, padx=6, pady=(0, 6))
         e = Card(body, "Event log")
         e.grid(row=2, column=2, sticky="nsew", padx=6, pady=6)
-        self.log = tk.Text(e, bg=CARD, fg=TEXT, bd=0, font=("Consolas", 10), height=6,
+        self.log = tk.Text(e, bg=CARD, fg=TEXT, bd=0, font=(MONO, 10), height=6,
                            highlightthickness=0, state="disabled")
         self.log.pack(fill="both", expand=True, padx=12, pady=(0, 8))
         for name, col in [("ok", GREEN), ("warn", AMBER), ("bad", RED), ("dim", MUTED)]:
@@ -206,7 +226,7 @@ class Dashboard:
         tk.Label(foot, text="KEYPAD", fg=MUTED, bg=BG, font=(FONT, 9, "bold")).pack(side="left")
         for k, t in [("C", "calibrate (10 flicks = healthy)"), ("B", "mark loose support"),
                      ("D", "clear mark"), ("A", "teach new fault"), ("F", "LCD page")]:
-            tk.Label(foot, text=f" {k} ", fg=BG, bg=MUTED, font=(FONT, 9, "bold")).pack(side="left", padx=(14, 4))
+            tk.Label(foot, text=f" {k} ", fg=BG, bg=BLUE, font=(FONT, 9, "bold")).pack(side="left", padx=(14, 4))
             tk.Label(foot, text=t, fg=MUTED, bg=BG, font=(FONT, 9)).pack(side="left")
 
         for cv in (self.gauge, self.leds, self.wave, self.spec, self.trend):
@@ -214,6 +234,7 @@ class Dashboard:
         self.add_event("Dashboard started, listening on " + source, "dim")
         root.after(100, self.poll)
         self.tick()
+        self.animate()
 
     # ---------------------------------------------------------------- drawing
     def redraw(self):
@@ -227,26 +248,42 @@ class Dashboard:
         c = self.gauge
         c.delete("all")
         w, h = c.winfo_width(), c.winfo_height()
-        r = max(min(w / 2 - 20, h - 30), 40)
-        cx, cy = w / 2, h - 18
-        box = (cx - r, cy - r, cx + r, cy + r)
-        for lo, hi, col in [(0, 40, RED), (40, 70, AMBER), (70, 100, GREEN)]:
-            c.create_arc(*box, start=180 - hi * 1.8, extent=(hi - lo) * 1.8, style="arc",
-                         outline=col, width=4)
-        c.create_arc(cx - r + 14, cy - r + 14, cx + r - 14, cy + r - 14, start=0, extent=180,
-                     style="arc", outline=GRID, width=16)
+        r = max(min(w / 2 - 50, h / 2 - 34), 30)
+        cx, cy = w / 2, h / 2
+        # radar rings and sweep
+        for k in (1.0, 0.72, 0.45):
+            c.create_oval(cx - r * k, cy - r * k, cx + r * k, cy + r * k, outline=GRID)
+        c.create_line(cx - r, cy, cx + r, cy, fill=GRID)
+        c.create_line(cx, cy - r, cx, cy + r, fill=GRID)
+        for i in range(10):
+            c.create_arc(cx - r, cy - r, cx + r, cy + r, start=-self.phase + i * 3, extent=3,
+                         style="pieslice", fill=mix(BLUE, CARD, 0.7 + i * 0.03), outline="")
+        # segmented ring: 40 segments over 270 degrees
+        hv = self.shown
+        col = health_color(hv) if self.r else DIM
+        ro = r + 14
+        for i in range(40):
+            v = (i + 0.5) * 2.5
+            on = self.r is not None and v <= hv
+            st = 225 - i * 6.75
+            seg = mix(col, CARD, 0.0) if on else GRID
+            if on:
+                c.create_arc(cx - ro, cy - ro, cx + ro, cy + ro, start=st, extent=-5,
+                             style="arc", outline=mix(col, CARD, 0.75), width=16)
+            c.create_arc(cx - ro, cy - ro, cx + ro, cy + ro, start=st, extent=-5,
+                         style="arc", outline=seg, width=9)
+        for v, lab in ((0, "0"), (40, "40"), (70, "70"), (100, "100")):
+            ang = math.radians(225 - v * 2.7)
+            c.create_text(cx + (ro + 18) * math.cos(ang), cy - (ro + 18) * math.sin(ang),
+                          text=lab, fill=DIM, font=(MONO, 8))
         if self.r:
-            hv = self.r["health"]
-            c.create_arc(cx - r + 14, cy - r + 14, cx + r - 14, cy + r - 14, start=180,
-                         extent=-hv * 1.8, style="arc", outline=health_color(hv), width=16)
-            c.create_text(cx, cy - r * 0.38, text=f"{hv}%", fill=health_color(hv),
-                          font=(FONT, int(r / 3), "bold"))
-            band = "SAFE" if hv >= 70 else "CAUTION" if hv >= 40 else "UNSAFE"
-            c.create_text(cx, cy - 8, text=band, fill=MUTED, font=(FONT, 10, "bold"))
+            c.create_text(cx, cy - 6, text=f"{hv:.0f}", fill=mix(col, CARD, 0.6),
+                          font=(MONO, int(r / 2.2) + 2, "bold"))
+            c.create_text(cx, cy - 6, text=f"{hv:.0f}", fill=col, font=(MONO, int(r / 2.2), "bold"))
+            band = "SAFE" if self.r["health"] >= 70 else "CAUTION" if self.r["health"] >= 40 else "UNSAFE"
+            c.create_text(cx, cy + r * 0.42, text=f"% HEALTH  \u00b7  {band}", fill=col, font=(FONT, 9, "bold"))
         else:
-            c.create_text(cx, cy - r * 0.38, text="--", fill=DIM, font=(FONT, int(r / 3), "bold"))
-        c.create_text(cx - r + 6, cy + 8, text="0", fill=DIM, font=(FONT, 8))
-        c.create_text(cx + r - 6, cy + 8, text="100", fill=DIM, font=(FONT, 8))
+            c.create_text(cx, cy, text="STANDBY", fill=DIM, font=(MONO, 14, "bold"))
 
     def draw_leds(self):
         c = self.leds
@@ -261,8 +298,8 @@ class Dashboard:
             on = i < n
             col = health_color(hv) if on else GRID
             if on:
-                c.create_oval(x - 15, 5, x + 15, 35, fill="", outline=col, width=1)
-            c.create_oval(x - 11, 9, x + 11, 31, fill=col, outline=EDGE)
+                c.create_oval(x - 15, 5, x + 15, 35, fill=mix(col, CARD, 0.8), outline="")
+            c.create_oval(x - 9, 11, x + 9, 29, fill=col, outline=EDGE)
 
     def axes(self, c, xlab, ylab, xticks, x2px, y_lines=()):
         w, h = c.winfo_width(), c.winfo_height()
@@ -297,7 +334,7 @@ class Dashboard:
         pts = []
         for i in idx:
             pts += [L + i / (n - 1) * (R - L), y2px(y[i])]
-        c.create_line(*pts, fill=BLUE, width=1)
+        glow_line(c, pts, BLUE, 1)
         if self.r:   # decay envelope from the measured damping
             wn, z = 2 * math.pi * self.r["f1"], self.r["damp"]
             peak = float(np.abs(y[:int(FS)]).max())
@@ -331,7 +368,8 @@ class Dashboard:
         for f, m in zip(fr, mag):
             pts += [x2px(f), y2px(m)]
         pts += [x2px(fr[-1]), B]
-        c.create_polygon(*pts, fill="#1f3a5f", outline=BLUE)
+        c.create_polygon(*pts, fill=mix(BLUE, CARD, 0.82), outline="")
+        glow_line(c, pts[2:-2], BLUE, 2)
         base = self.baseline()[0]
         if base:
             x = x2px(base)
@@ -349,7 +387,7 @@ class Dashboard:
         w, h = c.winfo_width(), c.winfo_height()
         L, R, T, B = 44, w - 10, 28, h - 24
         y2px = lambda v: B - v / 100 * (B - T)
-        for lo, hi, col in [(0, 40, "#2a1517"), (40, 70, "#2a2312"), (70, 100, "#132a1a")]:
+        for lo, hi, col in [(0, 40, mix(RED, CARD, 0.9)), (40, 70, mix(AMBER, CARD, 0.92)), (70, 100, mix(GREEN, CARD, 0.93))]:
             c.create_rectangle(L, y2px(hi), R, y2px(lo), fill=col, outline="")
         for v in (0, 40, 70, 100):
             c.create_line(L, y2px(v), R, y2px(v), fill=GRID)
@@ -364,10 +402,11 @@ class Dashboard:
         for i, (num, hv, cls) in enumerate(self.hist):
             pts += [x(i), y2px(hv)]
         if len(pts) >= 4:
-            c.create_line(*pts, fill=MUTED, width=2)
+            glow_line(c, pts, BLUE, 2)
         for i, (num, hv, cls) in enumerate(self.hist):
             col = INFO.get(cls, ("", MUTED))[1]
-            c.create_oval(x(i) - 5, y2px(hv) - 5, x(i) + 5, y2px(hv) + 5, fill=col, outline=CARD)
+            c.create_oval(x(i) - 8, y2px(hv) - 8, x(i) + 8, y2px(hv) + 8, fill=mix(col, CARD, 0.75), outline="")
+            c.create_oval(x(i) - 4, y2px(hv) - 4, x(i) + 4, y2px(hv) + 4, fill=col, outline="")
             if len(self.hist) <= 20 or i % 2 == 0:
                 c.create_text(x(i), B + 12, text=f"#{num}", fill=DIM, font=(FONT, 7))
         lx = L + 6
@@ -396,6 +435,19 @@ class Dashboard:
         except queue.Empty:
             pass
         self.root.after(100, self.poll)
+
+    def animate(self):
+        """30 fps: ease the gauge toward the new health, spin the radar sweep, pulse the dot."""
+        self.phase = (self.phase + 3) % 360
+        target = self.r["health"] if self.r else 0
+        self.shown += (target - self.shown) * 0.12
+        self.draw_gauge()
+        p = (math.sin(math.radians(self.phase * 4)) + 1) / 2
+        col = AMBER if self.source == "demo" else GREEN
+        self.dot.delete("all")
+        self.dot.create_oval(1, 1, 17, 17, fill=mix(col, BG, 0.5 + 0.4 * p), outline="")
+        self.dot.create_oval(5, 5, 13, 13, fill=col, outline="")
+        self.root.after(33, self.animate)
 
     def tick(self):
         self.clock.config(text=time.strftime("%d %b %Y   %H:%M:%S"))
