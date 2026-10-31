@@ -136,7 +136,7 @@ class Dashboard:
         votes = tk.Frame(c, bg=CARD)
         votes.pack(fill="x", padx=10, pady=(4, 10))
         self.votes = {}
-        for i, (k, name) in enumerate([("knn", "kNN  (health)"), ("nn", "Neural net 2-8-4"),
+        for i, (k, name) in enumerate([("knn", "kNN  (health)"), ("nn", "Neural net 5-8-4"),
                                        ("tree", "Decision tree")]):
             votes.columnconfigure(i, weight=1, uniform="v")
             box = tk.Frame(votes, bg=BG, highlightbackground=EDGE, highlightthickness=1)

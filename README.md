@@ -1,123 +1,222 @@
-# TinySHM: vibration-based structural damage detection on LPC1768
+# TinySHM: Vibration-Based Structural Damage Detection on an ARM Cortex-M3
 
-Everything here runs on a laptop **now**, using fake flicks. In the lab you
-swap the fake data for real recordings and rerun the same commands.
+[![Dashboard](https://github.com/HalcyonVector/TinySHM/actions/workflows/pages.yml/badge.svg)](https://github.com/HalcyonVector/TinySHM/actions/workflows/pages.yml)
 
-## One-time setup (each laptop)
-1. Install Python 3.10 or newer, and tick "Add to PATH" on Windows.
-2. Open a terminal in this folder and run `pip install -r requirements.txt`
-3. For the C check, you need gcc. On Windows, install MinGW-w64 or use WSL. This step is optional.
+Flick a steel cantilever beam and an LPC1768 (ARM Cortex-M3, no FPU) tells you what is wrong with it: healthy, added mass, loose joint or loose support, plus a 0 to 100 health score, a change alarm and an "unknown fault" flag. An MPU6050 accelerometer records the free vibration at 100 Hz, the board runs its own FFT and damping estimate, and a decision tree, k-nearest neighbours and a 5-8-4 neural network trained on a laptop run on the chip as plain C. Pressing **C** on the keypad and flicking ten times sets the healthy baseline, so the same model works on a new board or a re-assembled beam without retraining. Everything fits in about 21 KB of flash, inside the free Keil 32 KB limit.
 
-## Practice run with fake data (do this this week)
-```
-python pc/simulate.py                 # 121 fake flicks in data/sim/
-python pc/simulate.py --unseen        # 20 fake faults the model never sees
-python pc/build_dataset.py sim        # flicks -> features table
-python pc/build_dataset.py sim_unseen
-python pc/train.py sim                # trains everything, plots, writes board/model.h
-python pc/check_c_parity.py sim       # board C code gives the same answers as Python
-python pc/logger.py --sim --label healthy --step 0 --count 5       # fake lab session
-python pc/logger.py --sim --label loose_support --step 1 --count 5
-python pc/logger.py --sim --label loose_support --step 2 --count 5
-python pc/trend.py sim_session        # when will it become unsafe?
-python pc/llm_report.py sim_session   # AI-written inspection report
-python pc/compare_methods.py sim      # FFT peak vs interpolated FFT vs zero-crossing
-```
-Results land in `results/sim/` and `results/sim_session/`.
+> **Live demo:** [halcyonvector.github.io/TinySHM](https://halcyonvector.github.io/TinySHM/): the lab dashboard replaying real recorded flicks (calibration, coin, loose joints), served from GitHub Pages. No board needed.
 
-## Real data (recorded 28 Oct 2026)
-The real flicks are in `data/real/`. Results and the commands to rebuild them
-are in [docs/REAL_RESULTS.md](docs/REAL_RESULTS.md): neural net 94 %
-cross-validated accuracy vs 84 % for the frequency-only rule.
+![Dashboard screenshot](docs/dashboard_demo.png)
 
-**New to the hardware?** Start with [docs/BUILD_GUIDE.md](docs/BUILD_GUIDE.md): building the beam, wiring the sensor, and every lab step in order.
+---
 
-## Board setup (ALS-SDA-ARMCTXM3-01, from the lab manual)
-The sensor is an **MPU6050 (GY-521 board)**, read over I2C. Full photos and
-steps are in [docs/BUILD_GUIDE.md](docs/BUILD_GUIDE.md).
+## Findings
+
+Real numbers from 131 flicks recorded in the lab over two days on two different LPC1768 boards, not simulations:
+
+- **ML beats the classical frequency rule.** 5-fold cross-validation repeated 5 times: decision tree **88.6%**, neural network **87.3%**, kNN **85.7%**, against **78.0%** for a frequency-only rule.
+- **Damping sees what frequency cannot.** Added mass drops f1 by about 22% and loose joints by 5 to 8%, but a loosened support barely moves f1; only damping rises. The tree splits on damping 55% of the time and frequency 40%.
+- **Calibration fixes board-to-board drift.** The second board read the same healthy beam at 4.39 Hz instead of 4.74 Hz. With every feature taken relative to the 10-flick C baseline, the relative shifts per fault are the same on both boards and one model serves both.
+- **Health score tracks severity.** kNN health regression errs by 10.1 points on average, against 24.8 for linear regression. Healthy reads 100, a coin about 85, one missing clip about 50, two missing clips about 0 (UNSAFE).
+- **Board equals PC.** The firmware C code, compiled on a laptop, gives the same features, classes and health (within 0.03 points) as the Python reference on every recording.
+- **An honest limit.** Loosening the clamp by 1/4 or 1/2 turn stays inside the healthy range, so it is not reliably detected (5 of 13 and 2 of 12 held-out flicks flagged). Key **B** lets an operator mark the support loose by hand.
+- **Fewer features scored higher, and that is reported.** Using only f1 and damping gives kNN 96.0% and a 4.3-point health error, because amplitude and decay time vary with how hard the beam is flicked. The project keeps all five as its design choice.
+
+---
+
+## Disclaimer
+
+University lab project (Embedded Systems Lab, Manipal Institute of Technology), not a certified structural health monitoring product. Results come from one hand-flicked ruler beam in one room. Do not use it to judge the safety of a real structure.
+
+---
+
+## Features
+
+### On the Board (LPC1768)
+
+- MPU6050 read over bit-banged I2C at about 15 kHz, Z axis, +-4 g, built-in 44 Hz filter
+- Flick detection (0.3 g threshold) and 1024 samples at 100 Hz from Timer0
+- Own radix-2 FFT with Hann window and parabolic peak interpolation (0.009 Hz mean error, 117 ms on the chip)
+- Log-envelope damping, peak amplitude, energy outside the main peak and decay time
+- Decision tree, kNN (k = 3) and 5-8-4 neural network from an auto-generated `model.h`
+- Health score, change detector, novelty (UNKNOWN) detector
+- 16x2 LCD, 8-LED health bar (all flash when UNSAFE), 4x4 keypad, UART report every flick
+
+### Keypad
+
+| Key | Action |
+|---|---|
+| `C` | Calibrate: next 10 flicks become the healthy baseline (median) |
+| `B` | Mark support loose (health capped at 50%) |
+| `D` | Clear the mark |
+| `A` | Teach a new fault from 5 flicks (counts as 50% damage) |
+| `F` | Switch LCD between the answer and the raw numbers |
+| `0` | Back to normal run mode |
+
+### On the Laptop
+
+- Logger that walks the whole lab plan (`--plan`) and resumes from saved files
+- Training, cross-validation, plots and C export in one command
+- C-to-Python parity check that compiles the firmware with gcc
+- Trend forecast: when will health cross the UNSAFE line
+- LLM-written inspection report (Groq, Gemini fallback, or a built-in template)
+- Live browser dashboard over the board's serial output, works offline
+
+---
+
+## Tech Stack
+
+| Layer | Technology | Details |
+|-------|-----------|---------|
+| MCU | NXP LPC1768 | ARM Cortex-M3, 100 MHz, ALS-SDA-ARMCTXM3-01 lab board |
+| Sensor | MPU6050 (GY-521) | 3-axis MEMS accelerometer over I2C |
+| Firmware | C (C89) | Keil uVision 4, or arm-none-eabi-gcc (`board/gcc/build.sh`) |
+| Flashing | Flash Magic | Over the board's serial port, JP3 jumper for auto ISP |
+| ML training | Python, scikit-learn | Tree, kNN, MLP, exported as C arrays |
+| Signal processing | NumPy | Same FFT and features as the board |
+| Dashboard | Vanilla HTML/CSS/JS + Python `http.server` | Server-sent events, no framework, no internet |
+| Hosting | GitHub Pages | Static replay demo deployed by GitHub Actions |
+| Report | IEEE conference format | Word + PDF in `docs/final_report/` |
+
+---
+
+## Hardware
+
+About Rs 1,100 on top of the lab board. No drilling, cutting or workshop tools.
+
+| Part | Use |
+|---|---|
+| 2 x 30 cm steel rulers | The beam: ruler A 18.5 cm past the table edge, ruler B overlapping it by 13.5 cm (35.5 cm free length) |
+| 3 binder clips | Hold the two rulers together; removing clips = loose joint |
+| 10 inch screw G-clamp + cardboard pad | Holds ruler A to the table; loosening it = loose support |
+| Rs 20 + Rs 5 coin | Added mass, taped at the 28 to 30 cm mark |
+| MPU6050 (GY-521) | Taped flat on ruler B, about 26 cm from the edge |
+| Female-to-female jumpers | Sensor to board |
+
+### Wiring
 
 | What | Connection |
 |---|---|
-| LCD | FRC cable CND -> CNAD, short JP16 and JP5, POT3 = contrast (Lab 9) |
-| Keypad | FRC cable CNB -> CNB3, short JP4 (1,2) (Lab 9) |
-| PC link | DB9 cross cable to CN9, same as Flash Magic, 19200 baud |
-| LEDs | FRC cable CNA -> CNA1 (Lab 6). LD2 to LD9 = health bar, all flash = UNSAFE |
-| MPU6050 SDA | P0.19 (I2C1 SDA), CNC middle pair, pin 5 |
-| MPU6050 SCL | P0.20 (I2C1 SCL), CNC middle pair, pin 6 |
-| MPU6050 VCC | TP2 "3.3V" test post (POWER SUPPLY box) |
-| MPU6050 GND | TP3 "GND" test post, next to TP2 |
-| MPU6050 AD0, INT, XDA, XCL | Leave unconnected |
+| MPU6050 SDA | CNC pin 5 (P0.19) |
+| MPU6050 SCL | CNC pin 6 (P0.20) |
+| MPU6050 VCC / GND | TP2 "3.3V" / TP3 "GND" |
+| LCD | FRC CND to CNAD, short JP16 and JP5 |
+| Keypad | FRC CNB to CNB3, short JP4 (1,2) |
+| LEDs | FRC CNA to CNA1 |
+| PC link | DB9 to CN9, 19200 baud |
 
-The sensor uses loose female-to-female jumper wires, not an FRC cable. On
-power-up the board prints `MPU6050 found, WHO_AM_I = ...` over UART. If the
-LCD says **MPU6050 NOT FOUND**, swap SDA and SCL, check VCC and GND, and
-press reset. Any WHO_AM_I value is fine (104 is a genuine chip; clones often
-say 112 or 114 and work the same).
+Photos and every step are in [docs/BUILD_GUIDE.md](docs/BUILD_GUIDE.md).
 
-**Beam:** two 30 cm steel rulers. Ruler A sticks out 10 cm past the table
-edge, held by a hand-tightened C-clamp (fallback: 4 heavy books stacked flush
-with the edge). Ruler B
-overlaps it by 5 cm, held with 3 binder clips (35 cm free length).
+---
 
-**Sensor mounting:** tape the module flat on ruler B, 2 cm from the tip. The
-code reads the **Z** axis, which points along the direction the ruler swings.
-The MPU6050 is set to +-4 g with its built-in 44 Hz filter.
+## Prerequisites
 
-## Keil uVision 4 project
-1. Create a new project for NXP LPC1768 and copy `system_LPC17xx.c` into it, as in Lab 6.
-2. Add `board/main.c`, `hw.c`, `features.c`, `classify.c`, and tick "Create HEX file".
-3. In `startup_LPC17xx.s` (Configuration Wizard tab) set Stack Size to 0x800.
-4. Build. A gcc test build uses about 20 KB of flash (Keil limit 32 KB) and
-   about 12.4 KB of RAM (the LPC1768 has 32 KB main RAM plus 32 KB more).
-5. Flash with Flash Magic as in Lab 6, then **close Flash Magic** so the logger can use the COM port.
+- Python 3.10+ (`py` on Windows)
+- For the board: Keil uVision 4 or arm-none-eabi-gcc, and Flash Magic
+- Optional: gcc for the parity check, a free [Groq](https://console.groq.com) key for LLM reports
 
-**Keypad keys:** `0` normal mode · `A` teach a new condition (5 flicks) · `C` self-calibrate the healthy baseline (10 flicks) · `F` switch the LCD between the answer and the raw numbers.
+---
 
-## Lab day
-1. Wire the sensor and flash the board code. It sends `RES,...` and `RAW,...` once per flick over UART at 19200 baud.
-2. Record the flicks. Change `COM5` to your port, which you can find in Device Manager under Ports.
+## Quick Start
+
+### Dashboard without a board
+
+```
+git clone https://github.com/HalcyonVector/TinySHM.git
+cd TinySHM
+py -m pip install -r requirements.txt
+py pc/dashboard_web.py --demo
+```
+
+### With the board
+
+1. Flash `hex/TinySHM.hex` with Flash Magic (JP3 cap on), close Flash Magic, take JP3 off and press RESET.
+2. Start the dashboard on the board's COM port:
    ```
-   python pc/logger.py --port COM5 --label healthy     --step 0 --count 25
-   python pc/logger.py --port COM5 --label loose_support --step 1 --count 12   # clamp 1/4 turn loose
-   python pc/logger.py --port COM5 --label loose_support --step 2 --count 12   # 1/2 turn
-   python pc/logger.py --port COM5 --label loose_support --step 3 --count 10   # 3/4 turn
-   python pc/logger.py --port COM5 --label loose_joint --step 1 --count 15   # 1 clip removed
-   python pc/logger.py --port COM5 --label loose_joint --step 2 --count 12   # 2 clips removed
-   python pc/logger.py --port COM5 --label added_mass  --step 1 --count 25   # coin taped on
+   py pc/dashboard_web.py --port COM3
    ```
-   Re-tighten and re-check "healthy" a few times during the session, because the support drifts.
-3. Train on the real data:
-   ```
-   python pc/build_dataset.py real
-   python pc/train.py real
-   python pc/check_c_parity.py real
-   ```
-4. Copy the new `board/model.h` into the Keil project, rebuild and reflash. The board now answers by itself.
-5. Run the demo. Run `trend.py real` and `llm_report.py real` for the report.
+3. Press **C** and flick the beam 10 times, then flick it after each change.
 
-## What each file does
-| File | Job |
-|---|---|
-| `pc/config.py` | Shared settings (sample rate, classes, damage levels). Must match `board/config.h` |
-| `pc/simulate.py` | Fake flicks from cantilever physics |
-| `pc/features.py` | 5 features per flick: frequency, damping, amplitude, energy ratio, decay time |
-| `pc/build_dataset.py` | All flick files -> one features CSV |
-| `pc/train.py` | Trains: frequency-only baseline, decision tree, kNN, neural net (5-8-4), health-score regression, change and novelty detectors. Makes plots and `board/model.h` |
-| `pc/export_c.py` | Writes the trained models as C arrays |
-| `pc/check_c_parity.py` | Compiles the board C code with gcc and checks it matches Python |
-| `pc/predict.py` | Python twin of the board's classifier, used by the logger |
-| `pc/logger.py` | Records flicks from the board (or `--sim`), shows live answers |
-| `pc/trend.py` | Linear regression on health vs damage step, predicts when it goes UNSAFE |
-| `pc/llm_report.py` | LLM-written inspection report. Uses Groq (`GROQ_API_KEY`) first, then Gemini (`GEMINI_API_KEY`), then `--prompt-only` or a built-in template |
-| `board/features.c` | Feature extraction + its own FFT (no CMSIS library needed) |
-| `board/classify.c` | Runs the tree, neural net, kNN, health score, change and novelty checks, plus teach mode |
-| `board/model.h` | Auto-generated by `train.py`. Never edit by hand |
-| `board/main.c` | Board program: wait for a flick, record, classify, LCD + UART, keypad modes |
-| `board/hw.c` | Drivers: UART0, TIMER0 + ADC sampler, 16x2 LCD, 4x4 keypad |
-| `board/config.h` | Sample rate, ADC channel, LCD on/off. Must match `pc/config.py` |
-| `board/host_test.c` | Runs the board code on the laptop for testing |
+---
 
-## Important
-- **The fake-data numbers are not results.** Only numbers from `results/real/` go in the report.
-- If you change a feature in `features.py`, make the same change in `board/features.c` and rerun `check_c_parity.py`.
-- The board code compiles cleanly but hasn't run on real hardware yet. The first lab session is for checking the wiring, the sensor readings and the UART link.
+## Usage
+
+```
+py pc/logger.py --port COM3 --plan     # record every lab condition, resumes where it stopped
+py pc/build_dataset.py real            # flick files -> features table (per-day baseline)
+py pc/train.py real                    # train, cross-validate, plot, write board/model.h
+py pc/check_c_parity.py real           # firmware C == Python on every flick
+py pc/compare_methods.py real          # FFT peak vs interpolated FFT vs zero-crossing
+py pc/trend.py real                    # predicted step at which health goes UNSAFE
+py pc/llm_report.py real               # LLM inspection report (GROQ_API_KEY)
+py pc/build_pages.py                   # rebuild the GitHub Pages demo
+```
+
+Then rebuild the firmware (`board/gcc/build.sh`, or Keil with `board/*.c`) and reflash.
+
+---
+
+## How It Works
+
+1. **Flick:** the board waits for the acceleration to move 0.3 g from rest, then records 10.24 s.
+2. **Features:** windowed FFT with interpolated peak gives f1; the slope of the log RMS envelope gives damping; amplitude, energy ratio and decay time complete the five.
+3. **Calibrate:** each feature is divided by (f1, amplitude, decay) or offset from (damping, energy) the median of the ten C flicks.
+4. **Classify:** tree, kNN and neural network vote on the class; kNN over labelled damage levels gives health.
+5. **Alarm:** health below 40 is UNSAFE; a flick far from all training data is UNKNOWN.
+6. **Report:** LCD, LEDs and a `RES,...` + `RAW,...` line over UART for the logger and dashboard.
+
+The full method, equations and results are in the [final report](docs/final_report/TinySHM_Report.pdf).
+
+---
+
+## Project Structure
+
+```
+TinySHM/
+├── board/                Firmware: main.c, hw.c (drivers), features.c (FFT), classify.c, model.h
+│   └── gcc/              arm-none-eabi-gcc build script and linker file
+├── hex/                  Ready-to-flash builds (TinySHM.hex and lab test programs)
+├── Keil/                 Keil uVision 4 project
+├── pc/                   Python: logger, features, training, C export, parity, dashboard, reports
+├── pages/                Static dashboard demo for GitHub Pages (built by pc/build_pages.py)
+├── data/real/            131 recorded flicks (raw samples) + real_log.csv
+├── results/real/         Metrics, plots and trained models
+└── docs/                 Build guide, lab day checklist, final report, reference PDFs
+```
+
+---
+
+## Known Limitations
+
+- 131 flicks from one beam in one room; temperature and long-term drift were not studied
+- Flicks are by hand, so amplitude varies; a mechanical exciter would give cleaner data
+- Support loosening under about 3/4 turn is not reliably detected
+- Why the second board reads a lower frequency for the same beam is unknown; calibration hides the offset but does not explain it
+- Only the first bending mode is used
+
+---
+
+## Project Stats
+
+| Metric | Value |
+|--------|-------|
+| Recorded flicks | 131 (2 days, 2 boards) |
+| Fault classes | 4 |
+| Features | 5 |
+| Models on the chip | 3 classifiers + health + change + novelty |
+| Flash used | ~21 KB of 32 KB |
+| References in the report | 15 |
+
+---
+
+## Authors
+
+**Sagnik Basu**, **Pranav Gaddam**, **Shobit Hegde**, Section CCE A, School of Computer Engineering, Manipal Institute of Technology
+
+GitHub: [@HalcyonVector](https://github.com/HalcyonVector)
+
+---
+
+## License
+
+MIT License, see [LICENSE](./LICENSE).
